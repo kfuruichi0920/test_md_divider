@@ -93,6 +93,17 @@ const cardManager = new CardManager();
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  // 初期化時にログ追加
+  useEffect(() => {
+    const initialLogEntry: LogEntry = {
+      id: `log_init_${Date.now()}`,
+      timestamp: new Date(),
+      level: LogLevel.INFO,
+      message: 'MD Dividerアプリケーションを起動しました',
+    };
+    dispatch({ type: 'ADD_LOG', payload: initialLogEntry });
+  }, []);
+
   const updateCardsList = useCallback(() => {
     const cards = cardManager.getAllCards({
       filter: state.filter,
@@ -175,11 +186,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setFilter = useCallback((filter: Partial<AppState['filter']>) => {
     dispatch({ type: 'SET_FILTER', payload: filter });
-  }, []);
+    
+    // フィルター変更をログに記録
+    const filterDescriptions = [];
+    if (filter.status) {
+      const statusLabels = { unprocessed: '未処理', processing: '処理中', processed: '処理済み' };
+      filterDescriptions.push(`状態: ${statusLabels[filter.status]}`);
+    }
+    if (filter.searchText) {
+      filterDescriptions.push(`検索: "${filter.searchText}"`);
+    }
+    
+    if (filterDescriptions.length > 0) {
+      addLog(LogLevel.INFO, `フィルターを適用: ${filterDescriptions.join(', ')}`);
+    }
+  }, [addLog]);
 
   const clearFilter = useCallback(() => {
     dispatch({ type: 'SET_FILTER', payload: {} });
-  }, []);
+    addLog(LogLevel.INFO, 'フィルターをクリアしました');
+  }, [addLog]);
 
   const clearLogs = useCallback(() => {
     dispatch({ type: 'CLEAR_LOGS' });
@@ -227,6 +253,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           cardManager.updateCard(newCard.id, { status: cardData.status });
         }
       });
+
+      // カードリストを手動で更新
+      updateCardsList();
 
       dispatch({ type: 'SET_CURRENT_FILE', payload: data.originalFile });
       addLog(LogLevel.SUCCESS, `JSONファイルの読み込みが完了: ${data.cards.length}件のカードを復元`);

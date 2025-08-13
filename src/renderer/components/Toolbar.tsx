@@ -56,75 +56,102 @@ export function Toolbar() {
 
   return (
     <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '12px',
       backgroundColor: '#f8f9fa',
       borderBottom: '1px solid #ddd',
-      flexWrap: 'wrap',
     }}>
-      <button
-        onClick={handleFileOpen}
-        style={{
-          padding: '8px 16px',
-          backgroundColor: '#0066cc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-        }}
-      >
-        📄 テキストファイルを開く
-      </button>
-
-      <button
-        onClick={handleJsonLoad}
-        style={{
-          padding: '8px 16px',
-          backgroundColor: '#28a745',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-        }}
-      >
-        📂 JSONファイルを開く
-      </button>
-
-      {state.currentFile && (
+      {/* 1段目: ファイル操作 */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '8px 12px',
+        borderBottom: state.currentFile ? '1px solid #e9ecef' : 'none',
+      }}>
         <button
-          onClick={handleJsonSave}
+          onClick={handleFileOpen}
           style={{
             padding: '8px 16px',
-            backgroundColor: '#17a2b8',
+            backgroundColor: '#0066cc',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
             fontWeight: 'bold',
+            fontSize: '14px',
           }}
         >
-          💾 JSONファイルを保存
+          📄 テキストファイルを開く
         </button>
-      )}
 
-      {state.currentFile && (
-        <>
-          <div style={{
+        <button
+          onClick={handleJsonLoad}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
             fontSize: '14px',
-            color: '#666',
-            maxWidth: '200px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {state.currentFile}
-          </div>
+          }}
+        >
+          📂 JSONファイルを開く
+        </button>
 
-          <div style={{ height: '20px', width: '1px', backgroundColor: '#ddd' }} />
+        {state.currentFile && (
+          <button
+            onClick={handleJsonSave}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '14px',
+            }}
+          >
+            💾 JSONファイルを保存
+          </button>
+        )}
+
+        {state.currentFile && (
+          <>
+            <div style={{ height: '20px', width: '1px', backgroundColor: '#ddd' }} />
+            <div style={{
+              fontSize: '14px',
+              color: '#666',
+              maxWidth: '300px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              📁 {state.currentFile}
+            </div>
+
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', fontSize: '13px' }}>
+              <span>総数: <strong>{cardCounts.total}</strong></span>
+              <span style={{ color: '#dc3545' }}>未処理: <strong>{cardCounts.unprocessed}</strong></span>
+              <span style={{ color: '#ffc107' }}>処理中: <strong>{cardCounts.processing}</strong></span>
+              <span style={{ color: '#28a745' }}>処理済み: <strong>{cardCounts.processed}</strong></span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 2段目: フィルター操作 */}
+      {state.currentFile && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '8px 12px',
+        }}>
+          <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
+            🔍 フィルター:
+          </span>
 
           <select
             value={state.filter.status || ''}
@@ -133,6 +160,7 @@ export function Toolbar() {
               padding: '6px 12px',
               border: '1px solid #ccc',
               borderRadius: '4px',
+              fontSize: '14px',
             }}
           >
             <option value="">すべての状態</option>
@@ -150,7 +178,8 @@ export function Toolbar() {
               padding: '6px 12px',
               border: '1px solid #ccc',
               borderRadius: '4px',
-              minWidth: '200px',
+              minWidth: '250px',
+              fontSize: '14px',
             }}
           />
 
@@ -164,19 +193,13 @@ export function Toolbar() {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
+                fontSize: '14px',
               }}
             >
-              フィルターをクリア
+              ✕ クリア
             </button>
           )}
-
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', fontSize: '14px' }}>
-            <span>総数: <strong>{cardCounts.total}</strong></span>
-            <span style={{ color: '#dc3545' }}>未処理: <strong>{cardCounts.unprocessed}</strong></span>
-            <span style={{ color: '#ffc107' }}>処理中: <strong>{cardCounts.processing}</strong></span>
-            <span style={{ color: '#28a745' }}>処理済み: <strong>{cardCounts.processed}</strong></span>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
