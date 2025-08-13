@@ -64,10 +64,11 @@ export function CardList({ cards, height }: CardListProps) {
   return (
     <List
       height={height}
+      width="100%"
       itemCount={cards.length}
-      itemSize={120} // 各カードの高さ
+      itemSize={120}
       itemData={itemData}
-      overscanCount={5} // パフォーマンス向上のための先読み
+      overscanCount={5}
     >
       {CardRow}
     </List>
