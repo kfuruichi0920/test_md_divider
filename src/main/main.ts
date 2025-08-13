@@ -78,6 +78,8 @@ class Application {
   private setupIPC(): void {
     ipcMain.handle('open-file-dialog', this.handleOpenFileDialog.bind(this));
     ipcMain.handle('read-file', this.handleReadFile.bind(this));
+    ipcMain.handle('save-json', this.handleSaveJson.bind(this));
+    ipcMain.handle('open-json-dialog', this.handleOpenJsonDialog.bind(this));
   }
 
   private async openFile(): Promise<void> {
@@ -124,6 +126,44 @@ class Application {
       console.error('ファイル読み込みエラー:', error);
       return null;
     }
+  }
+
+  private async handleSaveJson(event: Electron.IpcMainInvokeEvent, jsonContent: string, suggestedName: string): Promise<string | null> {
+    if (!this.mainWindow) return null;
+
+    try {
+      const result = await dialog.showSaveDialog(this.mainWindow, {
+        defaultPath: suggestedName,
+        filters: [
+          { name: 'JSONファイル', extensions: ['json'] },
+          { name: 'すべてのファイル', extensions: ['*'] },
+        ],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return null;
+      }
+
+      await fs.promises.writeFile(result.filePath, jsonContent, 'utf-8');
+      return result.filePath;
+    } catch (error) {
+      console.error('JSON保存エラー:', error);
+      return null;
+    }
+  }
+
+  private async handleOpenJsonDialog(): Promise<string | null> {
+    if (!this.mainWindow) return null;
+
+    const result = await dialog.showOpenDialog(this.mainWindow, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'JSONファイル', extensions: ['json'] },
+        { name: 'すべてのファイル', extensions: ['*'] },
+      ],
+    });
+
+    return result.canceled ? null : result.filePaths[0];
   }
 }
 

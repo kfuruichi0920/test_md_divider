@@ -32,6 +32,21 @@ export function Toolbar() {
     actions.clearFilter();
   }, [actions]);
 
+  const handleJsonLoad = useCallback(async () => {
+    try {
+      const filePath = await window.electronAPI.openJsonDialog();
+      if (filePath) {
+        await actions.loadJsonFile(filePath);
+      }
+    } catch (error) {
+      console.error('JSON読み込みエラー:', error);
+    }
+  }, [actions]);
+
+  const handleJsonSave = useCallback(async () => {
+    await actions.saveJson();
+  }, [actions]);
+
   const cardCounts = {
     total: state.cards.length,
     unprocessed: state.cards.filter(c => c.status === CardStatus.UNPROCESSED).length,
@@ -61,8 +76,40 @@ export function Toolbar() {
           fontWeight: 'bold',
         }}
       >
-        ファイルを開く
+        📄 テキストファイルを開く
       </button>
+
+      <button
+        onClick={handleJsonLoad}
+        style={{
+          padding: '8px 16px',
+          backgroundColor: '#28a745',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+        }}
+      >
+        📂 JSONファイルを開く
+      </button>
+
+      {state.currentFile && (
+        <button
+          onClick={handleJsonSave}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+          }}
+        >
+          💾 JSONファイルを保存
+        </button>
+      )}
 
       {state.currentFile && (
         <>

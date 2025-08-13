@@ -3,6 +3,7 @@ import { AppProvider, useApp } from '../contexts/AppContext';
 import { FileDropZone } from './FileDropZone';
 import { Toolbar } from './Toolbar';
 import { CardList } from './CardList';
+import { StatusLog } from './StatusLog';
 
 function AppContent() {
   const { state } = useApp();
@@ -15,7 +16,8 @@ function AppContent() {
   }, []);
 
   const toolbarHeight = 80;
-  const cardListHeight = windowHeight - toolbarHeight;
+  const statusLogHeight = 120;
+  const cardListHeight = windowHeight - toolbarHeight - statusLogHeight;
 
   return (
     <FileDropZone>
@@ -67,9 +69,9 @@ function AppContent() {
               <div>
                 <div style={{ fontSize: '64px', marginBottom: '16px' }}>📄</div>
                 <div style={{ marginBottom: '8px' }}>ファイルをドラッグ&ドロップするか</div>
-                <div>「ファイルを開く」ボタンをクリックしてください</div>
+                <div>「テキストファイルを開く」または「JSONファイルを開く」ボタンをクリックしてください</div>
                 <div style={{ fontSize: '14px', color: '#999', marginTop: '12px' }}>
-                  対応形式: .txt, .md
+                  対応形式: .txt, .md, .json
                 </div>
               </div>
             </div>
@@ -77,6 +79,8 @@ function AppContent() {
             <CardList cards={state.cards} height={cardListHeight} />
           )}
         </div>
+        
+        <StatusLog logs={state.logs} height={statusLogHeight} />
       </div>
     </FileDropZone>
   );
