@@ -10,6 +10,7 @@ interface AppState {
   isLoading: boolean;
   error: string | null;
   currentFile: string | null;
+  currentJsonPath: string | null;
   filter: {
     status?: CardStatus;
     searchText?: string;
@@ -27,6 +28,7 @@ type AppAction =
   | { type: 'SET_CARDS'; payload: Card[] }
   | { type: 'SET_SELECTED_CARD'; payload: string | null }
   | { type: 'SET_CURRENT_FILE'; payload: string | null }
+  | { type: 'SET_JSON_PATH'; payload: string | null }
   | { type: 'SET_FILTER'; payload: Partial<AppState['filter']> }
   | { type: 'UPDATE_CARD'; payload: Card }
   | { type: 'ADD_LOG'; payload: LogEntry }
@@ -39,6 +41,7 @@ interface AppContextType {
     loadFile: (filePath: string) => Promise<void>;
     loadJsonFile: (filePath: string) => Promise<void>;
     saveJson: () => Promise<void>;
+    overwriteJson: () => Promise<void>;
     updateCard: (id: string, updates: CardUpdatePayload) => void;
     selectCard: (id: string | null) => void;
     setFilter: (filter: Partial<AppState['filter']>) => void;
@@ -59,6 +62,7 @@ const initialState: AppState = {
   isLoading: false,
   error: null,
   currentFile: null,
+  currentJsonPath: null,
   filter: {},
   logs: [],
   settings: {
@@ -79,6 +83,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedCardId: action.payload };
     case 'SET_CURRENT_FILE':
       return { ...state, currentFile: action.payload };
+    case 'SET_JSON_PATH':
+      return { ...state, currentJsonPath: action.payload };
     case 'SET_FILTER':
       return { ...state, filter: { ...state.filter, ...action.payload } };
     case 'UPDATE_CARD':
@@ -173,6 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
 
       dispatch({ type: 'SET_CURRENT_FILE', payload: filePath });
+      dispatch({ type: 'SET_JSON_PATH', payload: null });
       addLog(LogLevel.SUCCESS, `テキストファイルの読み込みが完了: ${paragraphs.length}件の段落を作成`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
@@ -317,6 +324,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateCardsList();
 
       dispatch({ type: 'SET_CURRENT_FILE', payload: data.originalFile });
+      dispatch({ type: 'SET_JSON_PATH', payload: filePath });
       addLog(LogLevel.SUCCESS, `JSONファイルの読み込みが完了: ${data.cards.length}件のカードを復元`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
@@ -343,6 +351,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedPath = await window.electronAPI.saveJson(jsonContent, suggestedName);
       if (savedPath) {
         addLog(LogLevel.SUCCESS, `JSONファイルを保存しました: ${savedPath}`);
+        dispatch({ type: 'SET_JSON_PATH', payload: savedPath });
       } else {
         addLog(LogLevel.INFO, 'JSON保存がキャンセルされました');
       }
@@ -352,12 +361,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.currentFile, addLog]);
 
+  const overwriteJson = useCallback(async () => {
+    if (!state.currentFile || !state.currentJsonPath) {
+      addLog(LogLevel.ERROR, '上書き保存するJSONファイルがありません');
+      return;
+    }
+
+    try {
+      addLog(LogLevel.INFO, 'JSONファイルの上書き保存を開始...');
+      const cards = cardManager.getAllCards({ sortOrder: 'position', sortDirection: 'asc' });
+      const saveData = SaveDataManager.createSaveData(state.currentFile, cards);
+      const jsonContent = JSON.stringify(saveData, null, 2);
+
+      const result = await window.electronAPI.overwriteJson(jsonContent, state.currentJsonPath);
+      if (result) {
+        addLog(LogLevel.SUCCESS, `JSONファイルを上書き保存しました: ${result}`);
+        dispatch({ type: 'SET_JSON_PATH', payload: result });
+      } else {
+        addLog(LogLevel.ERROR, 'JSONファイルの上書き保存に失敗しました');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      addLog(LogLevel.ERROR, `JSON上書き保存エラー: ${errorMessage}`);
+    }
+  }, [state.currentFile, state.currentJsonPath, addLog]);
+
   const contextValue: AppContextType = {
     state: { ...state, cardManager },
     actions: {
       loadFile,
       loadJsonFile,
       saveJson,
+      overwriteJson,
       updateCard,
       selectCard,
       setFilter,

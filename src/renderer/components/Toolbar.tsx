@@ -47,6 +47,10 @@ export function Toolbar() {
     await actions.saveJson();
   }, [actions]);
 
+  const handleJsonOverwrite = useCallback(async () => {
+    await actions.overwriteJson();
+  }, [actions]);
+
   const handleFontFamilyChange = useCallback((fontFamily: string) => {
     actions.updateSettings({ fontFamily });
   }, [actions]);
@@ -108,21 +112,39 @@ export function Toolbar() {
         </button>
 
         {state.currentFile && (
-          <button
-            onClick={handleJsonSave}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#17a2b8',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '14px',
-            }}
-          >
-            💾 JSONファイルを保存
-          </button>
+          <>
+            <button
+              onClick={handleJsonSave}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#17a2b8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '14px',
+              }}
+            >
+              💾 JSONファイルを保存
+            </button>
+
+            <button
+              onClick={handleJsonOverwrite}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#ffc107',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '14px',
+              }}
+            >
+              📝 上書き保存
+            </button>
+          </>
         )}
       </div>
 

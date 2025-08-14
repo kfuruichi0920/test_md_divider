@@ -80,6 +80,7 @@ class Application {
     ipcMain.handle('read-file', this.handleReadFile.bind(this));
     ipcMain.handle('save-json', this.handleSaveJson.bind(this));
     ipcMain.handle('open-json-dialog', this.handleOpenJsonDialog.bind(this));
+    ipcMain.handle('overwrite-json', this.handleOverwriteJson.bind(this));
   }
 
   private async openFile(): Promise<void> {
@@ -164,6 +165,25 @@ class Application {
     });
 
     return result.canceled ? null : result.filePaths[0];
+  }
+
+  private async handleOverwriteJson(_event: Electron.IpcMainInvokeEvent, jsonContent: string, filePath: string): Promise<string | null> {
+    try {
+      const backupDir = path.join(process.cwd(), '_bk');
+      await fs.promises.mkdir(backupDir, { recursive: true });
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const baseName = path.basename(filePath);
+      const backupPath = path.join(backupDir, `${timestamp}_${baseName}`);
+      await fs.promises.copyFile(filePath, backupPath);
+
+      await fs.promises.writeFile(filePath, jsonContent, 'utf-8');
+      console.log(`JSONファイルを上書き保存しました: ${filePath}`);
+      return filePath;
+    } catch (error) {
+      console.error('JSON上書き保存エラー:', error);
+      return null;
+    }
   }
 }
 
