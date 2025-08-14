@@ -36,6 +36,9 @@ export class CardManager {
       semanticAttribute: SemanticAttribute.TEXT,
       contents: trimmedContent,
       contentsTag: '',
+      // 階層管理情報（デフォルト：トップ階層）
+      hierarchyLevel: 1,
+      parentId: undefined,
     };
 
     this.cards.set(card.id, card);
@@ -75,6 +78,9 @@ export class CardManager {
       qaId: cardData.qaId,
       question: cardData.question,
       answer: cardData.answer,
+      // 階層管理情報（デフォルト値または復元値）
+      hierarchyLevel: cardData.hierarchyLevel !== undefined ? cardData.hierarchyLevel : 1,
+      parentId: cardData.parentId,
     };
 
     this.cards.set(card.id, card);
@@ -204,57 +210,13 @@ export class CardManager {
   }
 
   moveCard(cardId: string, direction: 'up' | 'down'): boolean {
-    const card = this.cards.get(cardId);
-    if (!card) return false;
-
-    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
-    const currentIndex = allCards.findIndex(c => c.id === cardId);
-    
-    if (currentIndex === -1) return false;
-    
-    let targetIndex: number;
-    if (direction === 'up' && currentIndex > 0) {
-      targetIndex = currentIndex - 1;
-    } else if (direction === 'down' && currentIndex < allCards.length - 1) {
-      targetIndex = currentIndex + 1;
-    } else {
-      return false; // 移動できない
-    }
-
-    // カードの位置を入れ替え
-    const movedCard = allCards[currentIndex];
-    const targetCard = allCards[targetIndex];
-    
-    // 配列内で位置を交換
-    allCards[currentIndex] = targetCard;
-    allCards[targetIndex] = movedCard;
-    
-    // 全カードのdisplayOrderを再計算
-    this.recalculateDisplayOrder(allCards);
-    
-    return true;
+    // 階層整合性を保った移動メソッドを使用
+    return this.moveCardWithHierarchyIntegrity(cardId, direction);
   }
 
   moveCardToPosition(cardId: string, targetIndex: number): boolean {
-    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
-    const currentIndex = allCards.findIndex(c => c.id === cardId);
-    
-    if (currentIndex === -1 || targetIndex < 0 || targetIndex >= allCards.length) {
-      return false;
-    }
-    
-    if (currentIndex === targetIndex) {
-      return true; // 同じ位置なので何もしない
-    }
-    
-    // 配列から要素を削除し、新しい位置に挿入
-    const movedCard = allCards.splice(currentIndex, 1)[0];
-    allCards.splice(targetIndex, 0, movedCard);
-    
-    // 全カードのdisplayOrderを再計算
-    this.recalculateDisplayOrder(allCards);
-    
-    return true;
+    // 階層整合性を保った移動メソッドを使用
+    return this.moveCardGroupToPosition(cardId, targetIndex);
   }
 
   // 全カードのdisplayOrderを再計算
@@ -357,6 +319,367 @@ export class CardManager {
       default:
         return [SemanticAttribute.NONE];
     }
+  }
+
+  // 階層管理メソッド
+
+  // 子カードを取得
+  getChildCards(parentId: string): Card[] {
+    return Array.from(this.cards.values())
+      .filter(card => card.parentId === parentId)
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }
+
+  // すべての子孫カードを取得（再帰的）
+  getDescendantCards(parentId: string): Card[] {
+    const children = this.getChildCards(parentId);
+    const descendants: Card[] = [...children];
+    
+    children.forEach(child => {
+      descendants.push(...this.getDescendantCards(child.id));
+    });
+    
+    return descendants;
+  }
+
+  // 親カードを取得
+  getParentCard(cardId: string): Card | undefined {
+    const card = this.cards.get(cardId);
+    if (!card || !card.parentId) {
+      return undefined;
+    }
+    return this.cards.get(card.parentId);
+  }
+
+  // カードを階層化（インデント）
+  indentCard(cardId: string): boolean {
+    const card = this.cards.get(cardId);
+    if (!card) return false;
+
+    // 同じ階層の前のカードを探す
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const currentIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (currentIndex <= 0) return false; // 最初のカードはインデントできない
+    
+    const previousCard = allCards[currentIndex - 1];
+    
+    // 前のカードと同じか1つ上の階層レベルである必要がある
+    if (previousCard.hierarchyLevel < card.hierarchyLevel - 1) return false;
+    
+    // 古い階層レベルを保存
+    const oldLevel = card.hierarchyLevel;
+    const newLevel = previousCard.hierarchyLevel + 1;
+    
+    // インデント実行
+    const updates: CardUpdatePayload = {
+      hierarchyLevel: newLevel,
+      parentId: previousCard.id,
+    };
+    
+    this.updateCard(cardId, updates);
+    
+    // 後続カードの階層を調整
+    this.adjustFollowingCardsHierarchy(cardId, oldLevel, newLevel);
+    
+    return true;
+  }
+
+  // カードを階層解除（アウトデント）
+  outdentCard(cardId: string): boolean {
+    const card = this.cards.get(cardId);
+    if (!card || card.hierarchyLevel <= 1) return false; // トップ階層はアウトデントできない
+
+    const parentCard = this.getParentCard(cardId);
+    if (!parentCard) return false;
+
+    // 古い階層レベルを保存
+    const oldLevel = card.hierarchyLevel;
+    const newLevel = card.hierarchyLevel - 1;
+
+    // アウトデント実行
+    const updates: CardUpdatePayload = {
+      hierarchyLevel: newLevel,
+      parentId: parentCard.parentId, // 祖父カードのIDまたはundefined
+    };
+    
+    this.updateCard(cardId, updates);
+    
+    // 後続カードの階層を調整
+    this.adjustFollowingCardsHierarchy(cardId, oldLevel, newLevel);
+    
+    return true;
+  }
+
+  // 階層グループごとの移動
+  moveCardWithDescendants(cardId: string, direction: 'up' | 'down'): boolean {
+    const card = this.cards.get(cardId);
+    if (!card) return false;
+
+    const descendants = this.getDescendantCards(cardId);
+    const cardGroup = [card, ...descendants];
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    
+    const startIndex = allCards.findIndex(c => c.id === cardId);
+    const endIndex = startIndex + cardGroup.length - 1;
+    
+    let targetIndex: number;
+    if (direction === 'up') {
+      if (startIndex === 0) return false; // 最初のグループは上に移動できない
+      // 前のカードグループを探す
+      let prevGroupStart = startIndex - 1;
+      const prevCard = allCards[prevGroupStart];
+      const prevDescendants = this.getDescendantCards(prevCard.id);
+      const prevGroupSize = 1 + prevDescendants.length;
+      prevGroupStart = startIndex - prevGroupSize;
+      targetIndex = prevGroupStart;
+    } else {
+      if (endIndex >= allCards.length - 1) return false; // 最後のグループは下に移動できない
+      // 次のカードグループを探す
+      const nextCard = allCards[endIndex + 1];
+      const nextDescendants = this.getDescendantCards(nextCard.id);
+      const nextGroupSize = 1 + nextDescendants.length;
+      targetIndex = endIndex + nextGroupSize + 1;
+      if (targetIndex >= allCards.length) return false;
+    }
+
+    // グループごと移動
+    const movedGroup = allCards.splice(startIndex, cardGroup.length);
+    allCards.splice(targetIndex, 0, ...movedGroup);
+    
+    // displayOrderを再計算
+    this.recalculateDisplayOrder(allCards);
+    
+    return true;
+  }
+
+  // 移動先の階層レベルを決定（階層整合性を保つ）
+  private determineTargetHierarchyLevel(targetIndex: number, allCards: Card[]): { level: number; parentId: string | undefined } {
+    // 移動先の前後のカードを確認
+    const prevCard = targetIndex > 0 ? allCards[targetIndex - 1] : null;
+    const nextCard = targetIndex < allCards.length ? allCards[targetIndex] : null;
+
+    // 前のカードがある場合
+    if (prevCard) {
+      // 次のカードがある場合
+      if (nextCard) {
+        // 階層の連続性を保つための判定
+        if (prevCard.hierarchyLevel < nextCard.hierarchyLevel) {
+          // 前のカードが親、次のカードが子の場合は前のカードの子として配置
+          if (nextCard.parentId === prevCard.id) {
+            return { level: nextCard.hierarchyLevel, parentId: prevCard.id };
+          }
+        }
+        
+        // 階層レベルが同じまたは前の方が深い場合は、より浅い階層レベルに合わせる
+        const targetLevel = Math.min(prevCard.hierarchyLevel, nextCard.hierarchyLevel);
+        
+        // 適切な親IDを決定
+        if (targetLevel === 1) {
+          return { level: 1, parentId: undefined };
+        } else {
+          // 前のカードまたは次のカードの親IDを使用（同じ階層レベルの場合）
+          const parentId = prevCard.hierarchyLevel === targetLevel ? prevCard.parentId : nextCard.parentId;
+          return { level: targetLevel, parentId };
+        }
+      } else {
+        // 最後に挿入する場合は前のカードと同じ階層レベル
+        return { level: prevCard.hierarchyLevel, parentId: prevCard.parentId };
+      }
+    } else if (nextCard) {
+      // 最初に挿入する場合は次のカードと同じ階層レベル
+      return { level: nextCard.hierarchyLevel, parentId: nextCard.parentId };
+    }
+    
+    // デフォルトはトップ階層
+    return { level: 1, parentId: undefined };
+  }
+
+  // 階層レベルの調整を行う
+  private adjustCardHierarchy(card: Card, newLevel: number, newParentId: string | undefined): Card {
+    const levelDiff = newLevel - card.hierarchyLevel;
+    const updatedCard = { ...card, hierarchyLevel: newLevel, parentId: newParentId };
+    
+    // 子孫カードの階層レベルも調整
+    const descendants = this.getDescendantCards(card.id);
+    descendants.forEach(descendant => {
+      const newDescendantLevel = Math.max(1, descendant.hierarchyLevel + levelDiff);
+      const updatedDescendant = { ...descendant, hierarchyLevel: newDescendantLevel };
+      
+      // 階層レベル1になった場合は親IDをクリア
+      if (newDescendantLevel === 1) {
+        updatedDescendant.parentId = undefined;
+      }
+      
+      this.cards.set(descendant.id, updatedDescendant);
+    });
+    
+    return updatedCard;
+  }
+
+  // 階層変更時の後続カードへの影響を処理
+  private adjustFollowingCardsHierarchy(cardId: string, oldLevel: number, newLevel: number): void {
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const cardIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (cardIndex === -1 || cardIndex >= allCards.length - 1) return;
+    
+    const levelDiff = newLevel - oldLevel;
+    
+    // 後続のカードを順次チェック
+    for (let i = cardIndex + 1; i < allCards.length; i++) {
+      const followingCard = allCards[i];
+      
+      // 次のカードが自分の階層より深い場合のみ調整
+      if (followingCard.hierarchyLevel > oldLevel) {
+        // 階層レベルを調整
+        const adjustedLevel = Math.max(1, followingCard.hierarchyLevel + levelDiff);
+        const updatedCard = { ...followingCard, hierarchyLevel: adjustedLevel, updatedAt: new Date() };
+        
+        // 階層レベル1になった場合は親IDをクリア
+        if (adjustedLevel === 1) {
+          updatedCard.parentId = undefined;
+        } else {
+          // 親IDの調整（必要に応じて）
+          const parentCard = this.findParentForLevel(updatedCard, adjustedLevel, allCards, i);
+          updatedCard.parentId = parentCard?.id;
+        }
+        
+        this.cards.set(followingCard.id, updatedCard);
+        allCards[i] = updatedCard; // 配列も更新
+      } else if (followingCard.hierarchyLevel <= oldLevel) {
+        // 同じまたはより浅い階層のカードが見つかったら処理終了
+        break;
+      }
+    }
+  }
+
+  // 指定された階層レベルに適した親カードを検索
+  private findParentForLevel(card: Card, targetLevel: number, allCards: Card[], currentIndex: number): Card | null {
+    if (targetLevel <= 1) return null;
+    
+    // 現在の位置より前のカードから、階層レベル(targetLevel-1)の親を探す
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const potentialParent = allCards[i];
+      if (potentialParent.hierarchyLevel === targetLevel - 1) {
+        return potentialParent;
+      }
+      if (potentialParent.hierarchyLevel < targetLevel - 1) {
+        // より浅い階層が見つかったら検索終了
+        break;
+      }
+    }
+    
+    return null;
+  }
+
+  // カードとその子孫すべてを取得して移動準備
+  private getCardGroupForMove(cardId: string): Card[] {
+    const card = this.cards.get(cardId);
+    if (!card) return [];
+    
+    const descendants = this.getDescendantCards(cardId);
+    return [card, ...descendants];
+  }
+
+  // 階層整合性を保った移動メソッド
+  moveCardWithHierarchyIntegrity(cardId: string, direction: 'up' | 'down'): boolean {
+    const cardGroup = this.getCardGroupForMove(cardId);
+    if (cardGroup.length === 0) return false;
+
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const currentIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (currentIndex === -1) return false;
+    
+    let targetIndex: number | undefined;
+    if (direction === 'up' && currentIndex > 0) {
+      // 上に移動：前のカード（グループ）を見つける
+      let checkIndex = currentIndex - 1;
+      while (checkIndex >= 0) {
+        const prevCard = allCards[checkIndex];
+        const prevDescendants = this.getDescendantCards(prevCard.id);
+        const prevGroupSize = 1 + prevDescendants.length;
+        
+        // 前のグループの開始位置を特定
+        const prevGroupStart = checkIndex - prevDescendants.length;
+        targetIndex = prevGroupStart;
+        break;
+      }
+      if (targetIndex === undefined) return false;
+    } else if (direction === 'down' && currentIndex + cardGroup.length < allCards.length) {
+      // 下に移動：次のカード（グループ）を見つける
+      const currentGroupEnd = currentIndex + cardGroup.length - 1;
+      let checkIndex = currentGroupEnd + 1;
+      
+      if (checkIndex < allCards.length) {
+        const nextCard = allCards[checkIndex];
+        const nextDescendants = this.getDescendantCards(nextCard.id);
+        const nextGroupSize = 1 + nextDescendants.length;
+        targetIndex = checkIndex + nextGroupSize;
+        if (targetIndex > allCards.length) targetIndex = allCards.length;
+      } else {
+        return false;
+      }
+    } else {
+      return false; // 移動できない
+    }
+
+    // targetIndexが未定義でないことを確認
+    if (targetIndex === undefined) return false;
+
+    // 移動実行
+    return this.moveCardGroupToPosition(cardId, targetIndex);
+  }
+
+  // カードグループを指定位置に移動
+  private moveCardGroupToPosition(cardId: string, targetIndex: number): boolean {
+    const cardGroup = this.getCardGroupForMove(cardId);
+    if (cardGroup.length === 0) return false;
+
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const currentIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (currentIndex === -1 || targetIndex < 0 || targetIndex > allCards.length) {
+      return false;
+    }
+    
+    // 移動先の階層レベルを決定
+    const hierarchyInfo = this.determineTargetHierarchyLevel(targetIndex, allCards);
+    
+    // カードグループを配列から削除
+    const movedGroup = allCards.splice(currentIndex, cardGroup.length);
+    
+    // 移動先に挿入
+    const adjustedTargetIndex = targetIndex > currentIndex ? targetIndex - cardGroup.length : targetIndex;
+    allCards.splice(adjustedTargetIndex, 0, ...movedGroup);
+    
+    // 移動したカードの階層レベルを調整
+    const movedCard = movedGroup[0];
+    const adjustedCard = this.adjustCardHierarchy(movedCard, hierarchyInfo.level, hierarchyInfo.parentId);
+    
+    // allCards配列内のカード情報も更新（recalculateDisplayOrderで上書きされないように）
+    const movedCardIndex = allCards.findIndex(c => c.id === cardId);
+    if (movedCardIndex !== -1) {
+      allCards[movedCardIndex] = adjustedCard;
+      
+      // 子孫カードも更新
+      const descendants = this.getDescendantCards(cardId);
+      descendants.forEach(descendant => {
+        const descendantIndex = allCards.findIndex(c => c.id === descendant.id);
+        if (descendantIndex !== -1) {
+          const updatedDescendant = this.cards.get(descendant.id);
+          if (updatedDescendant) {
+            allCards[descendantIndex] = updatedDescendant;
+          }
+        }
+      });
+    }
+    
+    // displayOrderを再計算
+    this.recalculateDisplayOrder(allCards);
+    
+    return true;
   }
 
   private generateId(): string {

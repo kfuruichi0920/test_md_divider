@@ -58,6 +58,8 @@ interface AppContextType {
     updateSettings: (settings: Partial<AppState['settings']>) => void;
     moveCard: (cardId: string, direction: 'up' | 'down') => void;
     moveCardToPosition: (cardId: string, targetIndex: number) => void;
+    indentCard: (cardId: string) => void;
+    outdentCard: (cardId: string) => void;
     undo: () => void;
     redo: () => void;
   };
@@ -386,6 +388,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addLog, cloneCards, updateHistoryState]);
 
+  const indentCard = useCallback((cardId: string) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const success = cardManager.indentCard(cardId);
+    if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を階層レベル ${card.hierarchyLevel} にインデントしました`);
+      }
+    }
+  }, [addLog, cloneCards, updateHistoryState]);
+
+  const outdentCard = useCallback((cardId: string) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const success = cardManager.outdentCard(cardId);
+    if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を階層レベル ${card.hierarchyLevel} にアウトデントしました`);
+      }
+    }
+  }, [addLog, cloneCards, updateHistoryState]);
+
   const loadJsonFile = useCallback(async (filePath: string) => {
     undoStack.current = [];
     redoStack.current = [];
@@ -452,6 +488,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           qaId: cardData.qaId,
           question: cardData.question,
           answer: cardData.answer,
+          hierarchyLevel: cardData.hierarchyLevel,
+          parentId: cardData.parentId,
         });
       });
 
@@ -538,6 +576,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       moveCard,
       moveCardToPosition,
+      indentCard,
+      outdentCard,
       undo,
       redo,
     },

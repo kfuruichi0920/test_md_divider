@@ -20,6 +20,8 @@ interface CardRowProps {
     onUpdateAttribute: (id: string, displayAttribute: any, semanticAttribute: any) => void;
     onMoveCard: (cardId: string, direction: 'up' | 'down') => void;
     onMoveCardToPosition: (cardId: string, targetIndex: number) => void;
+    onIndentCard: (cardId: string) => void;
+    onOutdentCard: (cardId: string) => void;
     resetItemSize: (index: number) => void;
     resetAllItemSizes: () => void;
     updateItemSize: (index: number, height: number) => void;
@@ -27,7 +29,7 @@ interface CardRowProps {
 }
 
 function CardRow({ index, style, data }: CardRowProps) {
-  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, resetItemSize, resetAllItemSizes, updateItemSize } = data;
+  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize } = data;
   const card = cards[index];
   const rowRef = React.useRef<HTMLDivElement>(null);
 
@@ -83,6 +85,16 @@ function CardRow({ index, style, data }: CardRowProps) {
         onMoveCardToPosition={(cardId, targetIndex) => {
           onMoveCardToPosition(cardId, targetIndex);
           // カード移動時に全体サイズをリセット
+          resetAllItemSizes();
+        }}
+        onIndentCard={(cardId) => {
+          onIndentCard(cardId);
+          // 階層変更時に全体サイズをリセット
+          resetAllItemSizes();
+        }}
+        onOutdentCard={(cardId) => {
+          onOutdentCard(cardId);
+          // 階層変更時に全体サイズをリセット
           resetAllItemSizes();
         }}
       />
@@ -280,6 +292,8 @@ export function CardList({ cards, height }: CardListProps) {
     onUpdateAttribute: actions.updateCardAttribute,
     onMoveCard: actions.moveCard,
     onMoveCardToPosition: actions.moveCardToPosition,
+    onIndentCard: actions.indentCard,
+    onOutdentCard: actions.outdentCard,
     resetItemSize,
     resetAllItemSizes,
     updateItemSize,

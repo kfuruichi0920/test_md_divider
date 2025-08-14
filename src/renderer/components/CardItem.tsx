@@ -47,6 +47,8 @@ interface CardItemProps {
   onUpdateAttribute?: (id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => void;
   onMoveCard?: (cardId: string, direction: 'up' | 'down') => void;
   onMoveCardToPosition?: (cardId: string, targetIndex: number) => void;
+  onIndentCard?: (cardId: string) => void;
+  onOutdentCard?: (cardId: string) => void;
   index: number;
 }
 
@@ -84,7 +86,7 @@ const DISPLAY_ATTRIBUTE_COLORS = {
   [DisplayAttribute.MISCELLANEOUS]: '#f3e8ff', // 薄い紫（雑記）
 };
 
-export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, index }: CardItemProps) {
+export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index }: CardItemProps) {
   const { state } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
@@ -194,6 +196,20 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
       onUpdateAttribute(card.id, card.displayAttribute, semanticAttribute);
     }
   }, [card.id, card.displayAttribute, onUpdateAttribute]);
+
+  const handleIndent = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onIndentCard) {
+      onIndentCard(card.id);
+    }
+  }, [card.id, onIndentCard]);
+
+  const handleOutdent = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOutdentCard) {
+      onOutdentCard(card.id);
+    }
+  }, [card.id, onOutdentCard]);
 
   const handleClick = useCallback(() => {
     onSelect(card.id);
@@ -477,6 +493,11 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     );
   }, [card, onUpdate, state.settings.fontFamily]);
 
+  // 階層インデント計算
+  const hierarchyIndent = (card.hierarchyLevel - 1) * 24; // 24pxずつインデント
+  const maxVisibleLevel = 3; // レベル3まで画面内に収める
+  const needsHorizontalScroll = card.hierarchyLevel > maxVisibleLevel;
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -486,11 +507,17 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         borderRadius: '8px',
         padding: '12px',
         marginBottom: '12px',
+        marginLeft: `${Math.min(hierarchyIndent, (maxVisibleLevel - 1) * 24)}px`,
         backgroundColor: DISPLAY_ATTRIBUTE_COLORS[card.displayAttribute],
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         position: 'relative',
         boxSizing: 'border-box',
+        // 階層レベル4以降は横スクロール対応
+        ...(needsHorizontalScroll && {
+          transform: `translateX(${hierarchyIndent - (maxVisibleLevel - 1) * 24}px)`,
+          minWidth: '300px',
+        }),
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -506,26 +533,80 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
           alignItems: 'center',
           gap: '6px',
         }}>
-          <div 
-            draggable
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            style={{
-              fontSize: '12px',
-              color: '#666',
-              fontWeight: 'bold',
-              cursor: 'grab',
-              padding: '4px',
-              borderRadius: '4px',
-              border: '1px solid #ddd',
-              backgroundColor: '#f8f9fa',
-              userSelect: 'none',
-            }}
-            title="ドラッグして順序を変更"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-          >
-            #{state.cardManager.getDisplayOrderNumber(card)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div 
+              draggable
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              style={{
+                fontSize: '12px',
+                color: '#666',
+                fontWeight: 'bold',
+                cursor: 'grab',
+                padding: '4px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                backgroundColor: '#f8f9fa',
+                userSelect: 'none',
+              }}
+              title="ドラッグして順序を変更"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              #{state.cardManager.getDisplayOrderNumber(card)} [Lv.{card.hierarchyLevel}]
+            </div>
+            
+            {/* インデント/アウトデント操作ボタン */}
+            {onIndentCard && onOutdentCard && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1px',
+              }}>
+                <button
+                  onClick={handleIndent}
+                  disabled={index === 0}
+                  style={{
+                    width: '16px',
+                    height: '12px',
+                    padding: '0',
+                    backgroundColor: index === 0 ? '#f5f5f5' : '#e3f2fd',
+                    border: '1px solid #ccc',
+                    borderRadius: '2px',
+                    cursor: index === 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: index === 0 ? '#ccc' : '#1976d2',
+                  }}
+                  title="インデント（階層を下げる）"
+                >
+                  →
+                </button>
+                <button
+                  onClick={handleOutdent}
+                  disabled={card.hierarchyLevel <= 1}
+                  style={{
+                    width: '16px',
+                    height: '12px',
+                    padding: '0',
+                    backgroundColor: card.hierarchyLevel <= 1 ? '#f5f5f5' : '#fff3e0',
+                    border: '1px solid #ccc',
+                    borderRadius: '2px',
+                    cursor: card.hierarchyLevel <= 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: card.hierarchyLevel <= 1 ? '#ccc' : '#f57c00',
+                  }}
+                  title="アウトデント（階層を上げる）"
+                >
+                  ←
+                </button>
+              </div>
+            )}
           </div>
           {card.hasChanges && (
             <span style={{

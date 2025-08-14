@@ -106,6 +106,23 @@ export class SaveDataManager {
             warnings.push(`カード${index + 1}: contentsTagフィールドがありません（後方互換性のため警告のみ）`);
           }
         }
+
+        // バージョン1.4.0以降の場合の階層フィールドチェック
+        if (data.version === '1.4.0' || (data.version && data.version > '1.3.0')) {
+          if (typeof card.hierarchyLevel !== 'number' || card.hierarchyLevel < 1) {
+            errors.push(`カード${index + 1}: hierarchyLevelは1以上の数値である必要があります`);
+          }
+          
+          // parentIdが存在する場合の整合性チェック
+          if (card.parentId) {
+            const parentExists = data.cards.some((c: any) => c.id === card.parentId);
+            if (!parentExists) {
+              errors.push(`カード${index + 1}: parentId "${card.parentId}" に対応する親カードが存在しません`);
+            }
+          } else if (card.hierarchyLevel > 1) {
+            errors.push(`カード${index + 1}: 階層レベル2以上のカードにはparentIdが必要です`);
+          }
+        }
       });
     }
 
@@ -156,6 +173,9 @@ export class SaveDataManager {
             qaId: card.qaId,
             question: card.question,
             answer: card.answer,
+            // バージョン1.4.0の新フィールド（デフォルト値: トップ階層）
+            hierarchyLevel: card.hierarchyLevel !== undefined ? card.hierarchyLevel : 1,
+            parentId: card.parentId,
           })),
         };
         return { data: saveData, validation };

@@ -53,6 +53,9 @@ export interface Card {
   qaId?: string;
   question?: string;
   answer?: string;
+  // 階層管理情報
+  hierarchyLevel: number;  // 階層レベル（1がトップ階層）
+  parentId?: string;       // 親カードのID（トップ階層の場合はundefined）
 }
 
 export interface CardUpdatePayload {
@@ -78,6 +81,9 @@ export interface CardUpdatePayload {
   qaId?: string;
   question?: string;
   answer?: string;
+  // 階層管理情報
+  hierarchyLevel?: number;
+  parentId?: string;
 }
 
 export type CardFilter = {
