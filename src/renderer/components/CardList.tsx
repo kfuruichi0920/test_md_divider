@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { Card, CardUpdatePayload } from '@/models';
 import { CardItem } from './CardItem';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useApp } from '../contexts/AppContext';
 
 interface CardListProps {
@@ -62,42 +63,44 @@ function CardRow({ index, style, data }: CardRowProps) {
         ...style,
         padding: '0 12px',
       }}>
-      <CardItem
-        card={card}
-        index={index}
-        isSelected={selectedCardId === card.id}
-        onSelect={onSelect}
-        onUpdate={(id, updates) => {
-          onUpdate(id, updates);
-          // カード更新時にサイズをリセット
-          resetItemSize(index);
-        }}
-        onUpdateAttribute={(id, displayAttribute, semanticAttribute) => {
-          onUpdateAttribute(id, displayAttribute, semanticAttribute);
-          // 属性更新時にサイズをリセット
-          resetItemSize(index);
-        }}
-        onMoveCard={(cardId, direction) => {
-          onMoveCard(cardId, direction);
-          // カード移動時に全体サイズをリセット
-          resetAllItemSizes();
-        }}
-        onMoveCardToPosition={(cardId, targetIndex) => {
-          onMoveCardToPosition(cardId, targetIndex);
-          // カード移動時に全体サイズをリセット
-          resetAllItemSizes();
-        }}
-        onIndentCard={(cardId) => {
-          onIndentCard(cardId);
-          // 階層変更時に全体サイズをリセット
-          resetAllItemSizes();
-        }}
-        onOutdentCard={(cardId) => {
-          onOutdentCard(cardId);
-          // 階層変更時に全体サイズをリセット
-          resetAllItemSizes();
-        }}
-      />
+      <ErrorBoundary>
+        <CardItem
+          card={card}
+          index={index}
+          isSelected={selectedCardId === card.id}
+          onSelect={onSelect}
+          onUpdate={(id, updates) => {
+            onUpdate(id, updates);
+            // カード更新時にサイズをリセット
+            resetItemSize(index);
+          }}
+          onUpdateAttribute={(id, displayAttribute, semanticAttribute) => {
+            onUpdateAttribute(id, displayAttribute, semanticAttribute);
+            // 属性更新時にサイズをリセット
+            resetItemSize(index);
+          }}
+          onMoveCard={(cardId, direction) => {
+            onMoveCard(cardId, direction);
+            // カード移動時に全体サイズをリセット
+            resetAllItemSizes();
+          }}
+          onMoveCardToPosition={(cardId, targetIndex) => {
+            onMoveCardToPosition(cardId, targetIndex);
+            // カード移動時に全体サイズをリセット
+            resetAllItemSizes();
+          }}
+          onIndentCard={(cardId) => {
+            onIndentCard(cardId);
+            // 階層変更時に全体サイズをリセット
+            resetAllItemSizes();
+          }}
+          onOutdentCard={(cardId) => {
+            onOutdentCard(cardId);
+            // 階層変更時に全体サイズをリセット
+            resetAllItemSizes();
+          }}
+        />
+      </ErrorBoundary>
     </div>
   );
 }

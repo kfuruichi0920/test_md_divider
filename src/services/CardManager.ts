@@ -325,21 +325,35 @@ export class CardManager {
 
   // 子カードを取得
   getChildCards(parentId: string): Card[] {
-    return Array.from(this.cards.values())
-      .filter(card => card.parentId === parentId)
-      .sort((a, b) => a.displayOrder - b.displayOrder);
+    try {
+      if (!parentId) return [];
+      return Array.from(this.cards.values())
+        .filter(card => card && card.parentId === parentId)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+    } catch (error) {
+      console.error('Error in getChildCards:', parentId, error);
+      return [];
+    }
   }
 
   // すべての子孫カードを取得（再帰的）
   getDescendantCards(parentId: string): Card[] {
-    const children = this.getChildCards(parentId);
-    const descendants: Card[] = [...children];
-    
-    children.forEach(child => {
-      descendants.push(...this.getDescendantCards(child.id));
-    });
-    
-    return descendants;
+    try {
+      if (!parentId) return [];
+      const children = this.getChildCards(parentId);
+      const descendants: Card[] = [...children];
+      
+      children.forEach(child => {
+        if (child && child.id) {
+          descendants.push(...this.getDescendantCards(child.id));
+        }
+      });
+      
+      return descendants;
+    } catch (error) {
+      console.error('Error in getDescendantCards:', parentId, error);
+      return [];
+    }
   }
 
   // 親カードを取得
@@ -370,6 +384,7 @@ export class CardManager {
     // 古い階層レベルを保存
     const oldLevel = card.hierarchyLevel;
     const newLevel = previousCard.hierarchyLevel + 1;
+    const levelDiff = newLevel - oldLevel;
     
     // インデント実行
     const updates: CardUpdatePayload = {
@@ -378,6 +393,9 @@ export class CardManager {
     };
     
     this.updateCard(cardId, updates);
+    
+    // グループ機能：全子孫カードの階層レベルも同じだけ変更
+    this.adjustGroupHierarchy(cardId, levelDiff);
     
     // 後続カードの階層を調整
     this.adjustFollowingCardsHierarchy(cardId, oldLevel, newLevel);
@@ -396,6 +414,7 @@ export class CardManager {
     // 古い階層レベルを保存
     const oldLevel = card.hierarchyLevel;
     const newLevel = card.hierarchyLevel - 1;
+    const levelDiff = newLevel - oldLevel; // マイナス値
 
     // アウトデント実行
     const updates: CardUpdatePayload = {
@@ -404,6 +423,9 @@ export class CardManager {
     };
     
     this.updateCard(cardId, updates);
+    
+    // グループ機能：全子孫カードの階層レベルも同じだけ変更
+    this.adjustGroupHierarchy(cardId, levelDiff);
     
     // 後続カードの階層を調整
     this.adjustFollowingCardsHierarchy(cardId, oldLevel, newLevel);
@@ -571,6 +593,129 @@ export class CardManager {
     }
     
     return null;
+  }
+
+  // グルーピング機能関連メソッド（機能追加10）
+
+  // カードデータの整合性をチェック
+  private validateCardData(card: Card): boolean {
+    try {
+      return !!(
+        card &&
+        typeof card.id === 'string' &&
+        typeof card.hierarchyLevel === 'number' &&
+        card.hierarchyLevel >= 1 &&
+        typeof card.displayOrder === 'number'
+      );
+    } catch (error) {
+      console.error('Card validation error:', error);
+      return false;
+    }
+  }
+
+  // 兄弟カードを取得
+  getSiblingCards(cardId: string): Card[] {
+    try {
+      const card = this.cards.get(cardId);
+      if (!card || !this.validateCardData(card)) return [];
+      
+      return Array.from(this.cards.values())
+        .filter(c => this.validateCardData(c) && c.id !== cardId && c.parentId === card.parentId && c.hierarchyLevel === card.hierarchyLevel)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+    } catch (error) {
+      console.error('Error in getSiblingCards:', cardId, error);
+      return [];
+    }
+  }
+
+  // カードのグループ情報を取得
+  getCardGroupInfo(cardId: string): {
+    parent: Card | null;
+    children: Card[];
+    descendants: Card[];
+    siblings: Card[];
+    isGroupRoot: boolean;
+    groupSize: number;
+  } {
+    try {
+      const card = this.cards.get(cardId);
+      if (!card) {
+        return {
+          parent: null,
+          children: [],
+          descendants: [],
+          siblings: [],
+          isGroupRoot: false,
+          groupSize: 0,
+        };
+      }
+
+      const parent = card.parentId ? this.cards.get(card.parentId) || null : null;
+      const children = this.getChildCards(cardId);
+      const descendants = this.getDescendantCards(cardId);
+      const siblings = this.getSiblingCards(cardId);
+      const isGroupRoot = children.length > 0;
+      const groupSize = 1 + descendants.length; // 自分 + 全子孫
+
+      return {
+        parent,
+        children,
+        descendants,
+        siblings,
+        isGroupRoot,
+        groupSize,
+      };
+    } catch (error) {
+      console.error('Error in getCardGroupInfo:', cardId, error);
+      return {
+        parent: null,
+        children: [],
+        descendants: [],
+        siblings: [],
+        isGroupRoot: false,
+        groupSize: 0,
+      };
+    }
+  }
+
+  // グループ全体の階層レベルを変更（親カードの階層変更時に全子カードも連動）
+  adjustGroupHierarchy(parentCardId: string, levelDiff: number): boolean {
+    const groupInfo = this.getCardGroupInfo(parentCardId);
+    if (groupInfo.descendants.length === 0) return true; // 子孫がいない場合は何もしない
+    
+    const now = new Date();
+    let success = true;
+    
+    // 全子孫カードの階層レベルを調整
+    groupInfo.descendants.forEach(descendant => {
+      const newLevel = Math.max(1, descendant.hierarchyLevel + levelDiff);
+      const updatedDescendant = { 
+        ...descendant, 
+        hierarchyLevel: newLevel, 
+        updatedAt: now 
+      };
+      
+      // 階層レベル1になった場合は親IDをクリア
+      if (newLevel === 1) {
+        updatedDescendant.parentId = undefined;
+      }
+      
+      this.cards.set(descendant.id, updatedDescendant);
+    });
+    
+    return success;
+  }
+
+  // グループ全体を移動（親カード移動時に全子カードも連動）
+  moveGroupTogether(parentCardId: string, targetIndex: number): boolean {
+    const groupInfo = this.getCardGroupInfo(parentCardId);
+    if (groupInfo.groupSize === 1) {
+      // 子孫がいない場合は通常の移動
+      return this.moveCardToPosition(parentCardId, targetIndex);
+    }
+    
+    // 既存のグループ移動機能を使用
+    return this.moveCardGroupToPosition(parentCardId, targetIndex);
   }
 
   // カードとその子孫すべてを取得して移動準備

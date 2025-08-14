@@ -554,6 +554,18 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
               onClick={(e) => e.stopPropagation()}
             >
               #{state.cardManager.getDisplayOrderNumber(card)} [Lv.{card.hierarchyLevel}]
+              {/* グループ情報表示（機能追加10） */}
+              {(() => {
+                try {
+                  const groupInfo = state.cardManager.getCardGroupInfo(card.id);
+                  if (groupInfo && groupInfo.isGroupRoot && groupInfo.groupSize > 1) {
+                    return <span style={{ color: '#666', fontSize: '10px' }}> (G:{groupInfo.groupSize})</span>;
+                  }
+                } catch (error) {
+                  console.warn('Error getting group info for card:', card.id, error);
+                }
+                return null;
+              })()}
             </div>
             
             {/* インデント/アウトデント操作ボタン */}
