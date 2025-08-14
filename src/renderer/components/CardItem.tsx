@@ -1,6 +1,42 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Card, CardStatus } from '@/models';
 import { useApp } from '../contexts/AppContext';
+import * as Diff from 'diff';
+
+// 差分表示コンポーネント
+interface DiffViewerProps {
+  original: string;
+  current: string;
+  showAdded?: boolean;
+  showRemoved?: boolean;
+  addedStyle?: React.CSSProperties;
+  removedStyle?: React.CSSProperties;
+}
+
+const DiffViewer = ({
+  original,
+  current,
+  showAdded = true,
+  showRemoved = false,
+  addedStyle = { color: 'red', backgroundColor: '#ffdddd', fontWeight: 'bold' },
+  removedStyle = { color: 'blue', backgroundColor: '#ddeeff', textDecoration: 'line-through' },
+}: DiffViewerProps) => {
+  const diffResult = useMemo(() => Diff.diffChars(original, current), [original, current]);
+
+  return (
+    <>
+      {diffResult.map((part, index) => {
+        if (part.added) {
+          return showAdded ? <span key={index} style={addedStyle}>{part.value}</span> : null;
+        }
+        if (part.removed) {
+          return showRemoved ? <span key={index} style={removedStyle}>{part.value}</span> : null;
+        }
+        return <span key={index}>{part.value}</span>;
+      })}
+    </>
+  );
+};
 
 interface CardItemProps {
   card: Card;
@@ -393,7 +429,11 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
             wordWrap: 'break-word',
             overflow: 'hidden',
           }}>
-            {card.content}
+            {card.hasChanges ? (
+              <DiffViewer original={card.originalContent} current={card.content} />
+            ) : (
+              card.content
+            )}
           </div>
           
           {card.hasChanges && (
@@ -422,7 +462,12 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
                 wordWrap: 'break-word',
                 overflow: 'hidden',
               }}>
-                {card.originalContent}
+                <DiffViewer 
+                  original={card.originalContent} 
+                  current={card.content} 
+                  showAdded={false}
+                  showRemoved={true}
+                />
               </div>
             </div>
           )}
