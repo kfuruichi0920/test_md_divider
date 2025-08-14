@@ -59,6 +59,10 @@ export function Toolbar() {
     actions.updateSettings({ fontSize });
   }, [actions]);
 
+  const handleRenderModeChange = useCallback((mode: 'text' | 'markdown') => {
+    actions.updateSettings({ renderMode: mode });
+  }, [actions]);
+
   const cardCounts = {
     total: state.cards.length,
     unprocessed: state.cards.filter(c => c.status === CardStatus.UNPROCESSED).length,
@@ -278,6 +282,23 @@ export function Toolbar() {
             <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
               ⚙️ 設定:
             </span>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+              表示:
+              <select
+                value={state.settings.renderMode}
+                onChange={(e) => handleRenderModeChange(e.target.value as 'text' | 'markdown')}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              >
+                <option value="text">テキスト</option>
+                <option value="markdown">Markdown</option>
+              </select>
+            </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
               フォント:

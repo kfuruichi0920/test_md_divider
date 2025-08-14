@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Card, CardStatus } from '@/models';
 import { useApp } from '../contexts/AppContext';
 import * as Diff from 'diff';
+import { renderMarkdown } from '@/utils';
 
 // 差分表示コンポーネント
 interface DiffViewerProps {
@@ -421,15 +422,19 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
         </div>
       ) : (
         <div>
-          <div style={{
-            whiteSpace: 'pre-wrap',
-            lineHeight: '1.5',
-            fontFamily: state.settings.fontFamily,
-            fontSize: `${state.settings.fontSize}px`,
-            wordWrap: 'break-word',
-            overflow: 'hidden',
-          }}>
-            {card.hasChanges ? (
+          <div
+            style={{
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.5',
+              fontFamily: state.settings.fontFamily,
+              fontSize: `${state.settings.fontSize}px`,
+              wordWrap: 'break-word',
+              overflow: 'hidden',
+            }}
+          >
+            {state.settings.renderMode === 'markdown' ? (
+              <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
+            ) : card.hasChanges ? (
               <DiffViewer original={card.originalContent} current={card.content} />
             ) : (
               card.content
@@ -453,21 +458,27 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
               }}>
                 📝 初期内容:
               </div>
-              <div style={{
-                whiteSpace: 'pre-wrap',
-                lineHeight: '1.4',
-                fontFamily: state.settings.fontFamily,
-                fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
-                color: '#6c757d',
-                wordWrap: 'break-word',
-                overflow: 'hidden',
-              }}>
-                <DiffViewer 
-                  original={card.originalContent} 
-                  current={card.content} 
-                  showAdded={false}
-                  showRemoved={true}
-                />
+              <div
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  lineHeight: '1.4',
+                  fontFamily: state.settings.fontFamily,
+                  fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
+                  color: '#6c757d',
+                  wordWrap: 'break-word',
+                  overflow: 'hidden',
+                }}
+              >
+                {state.settings.renderMode === 'markdown' ? (
+                  <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.originalContent) }} />
+                ) : (
+                  <DiffViewer
+                    original={card.originalContent}
+                    current={card.content}
+                    showAdded={false}
+                    showRemoved={true}
+                  />
+                )}
               </div>
             </div>
           )}
