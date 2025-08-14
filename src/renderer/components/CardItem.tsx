@@ -281,18 +281,18 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     if (!onUpdate) return null;
 
     const commonFieldStyle = {
-      width: '100%',
+      width: '98%',
       padding: '4px 8px',
       border: '1px solid #ddd',
       borderRadius: '4px',
-      fontSize: '11px',
+      fontSize: '12px',
       fontFamily: state.settings.fontFamily,
       marginBottom: '6px',
       resize: 'vertical' as const,
     };
 
     const labelStyle = {
-      fontSize: '11px',
+      fontSize: '12px',
       fontWeight: 'bold' as const,
       color: '#555',
       marginBottom: '2px',
@@ -504,7 +504,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
 
   // 階層インデント計算
   const hierarchyIndent = (card.hierarchyLevel - 1) * 24; // 24pxずつインデント
-  const maxVisibleLevel = 3; // レベル3まで画面内に収める
+  const maxVisibleLevel = 1; // レベル1まで画面内に収める
   const needsHorizontalScroll = card.hierarchyLevel > maxVisibleLevel;
 
   return (
@@ -517,12 +517,13 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         padding: '12px',
         marginBottom: '12px',
         marginLeft: `${Math.min(hierarchyIndent, (maxVisibleLevel - 1) * 24)}px`,
+        marginRight: '12px',
         backgroundColor: DISPLAY_ATTRIBUTE_COLORS[card.displayAttribute],
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         position: 'relative',
         boxSizing: 'border-box',
-        // 階層レベル4以降は横スクロール対応
+        // 階層レベル2以降は横スクロール対応
         ...(needsHorizontalScroll && {
           transform: `translateX(${hierarchyIndent - (maxVisibleLevel - 1) * 24}px)`,
           minWidth: '300px',
@@ -585,7 +586,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
                 try {
                   const groupInfo = state.cardManager.getCardGroupInfo(card.id);
                   if (groupInfo && groupInfo.isGroupRoot && groupInfo.groupSize > 1) {
-                    return <span style={{ color: '#666', fontSize: '10px' }}> (G:{groupInfo.groupSize})</span>;
+                    return <span style={{ color: '#666', fontSize: '12px' }}> (G:{groupInfo.groupSize})</span>;
                   }
                 } catch (error) {
                   console.warn('Error getting group info for card:', card.id, error);
