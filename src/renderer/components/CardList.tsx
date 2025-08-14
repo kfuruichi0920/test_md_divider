@@ -122,7 +122,7 @@ export function CardList({ cards, height }: CardListProps) {
 
     const mode = state.cardDisplayModes[card.id] || state.settings.cardDisplayMode;
     if (mode === 'single') {
-      return 60;
+      return 80;
     }
 
     if (itemSizes.current[index]) {
