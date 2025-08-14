@@ -100,10 +100,13 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     (e: React.MouseEvent) => {
       e.stopPropagation();
       actions.toggleCollapse(card.id);
-      onToggleCollapse?.();
     },
-    [actions, card.id, onToggleCollapse]
+    [actions, card.id]
   );
+
+  useEffect(() => {
+    onToggleCollapse?.();
+  }, [isCollapsed, onToggleCollapse]);
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -547,9 +550,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            cursor: 'pointer',
           }}
-          onClick={handleToggleCollapse}
         >
           {hasChildren && (
             <span style={{ fontSize: '12px', userSelect: 'none' }}>
@@ -642,6 +643,19 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
                 </button>
               </div>
             )}
+            <button
+              onClick={handleToggleCollapse}
+              style={{
+                padding: '2px 6px',
+                fontSize: '10px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                backgroundColor: '#f8f9fa',
+                cursor: 'pointer',
+              }}
+            >
+              {isCollapsed ? '展開' : '折畳'}
+            </button>
           </div>
           {card.hasChanges && (
             <span style={{
