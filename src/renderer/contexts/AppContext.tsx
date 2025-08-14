@@ -6,7 +6,8 @@ import { LogEntry, LogLevel } from '../components/StatusLog';
 
 interface AppState {
   cards: Card[];
-  selectedCardId: string | null;
+  selectedCardIds: string[];
+  lastSelectedCardId: string | null;
   isLoading: boolean;
   error: string | null;
   currentFile: string | null;
@@ -34,7 +35,7 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_CARDS'; payload: Card[] }
-  | { type: 'SET_SELECTED_CARD'; payload: string | null }
+  | { type: 'SET_SELECTED_CARDS'; payload: { ids: string[]; lastId: string | null } }
   | { type: 'SET_CURRENT_FILE'; payload: string | null }
   | { type: 'SET_JSON_PATH'; payload: string | null }
   | { type: 'SET_FILTER'; payload: Partial<AppState['filter']> }
@@ -55,7 +56,7 @@ interface AppContextType {
     overwriteJson: () => Promise<void>;
     updateCard: (id: string, updates: CardUpdatePayload) => void;
     updateCardAttribute: (id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => void;
-    selectCard: (id: string | null) => void;
+    selectCard: (id: string, index: number, options: { ctrlKey: boolean; shiftKey: boolean }) => void;
     setFilter: (filter: Partial<AppState['filter']>) => void;
     clearFilter: () => void;
     addLog: (level: LogLevel, message: string, details?: string) => void;
@@ -76,7 +77,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const initialState: AppState = {
   cards: [],
-  selectedCardId: null,
+  selectedCardIds: [],
+  lastSelectedCardId: null,
   isLoading: false,
   error: null,
   currentFile: null,
@@ -105,8 +107,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, error: action.payload, isLoading: false };
     case 'SET_CARDS':
       return { ...state, cards: action.payload };
-    case 'SET_SELECTED_CARD':
-      return { ...state, selectedCardId: action.payload };
+    case 'SET_SELECTED_CARDS':
+      return { ...state, selectedCardIds: action.payload.ids, lastSelectedCardId: action.payload.lastId };
     case 'SET_CURRENT_FILE':
       return { ...state, currentFile: action.payload };
     case 'SET_JSON_PATH':
@@ -363,9 +365,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addLog, cloneCards, updateHistoryState]);
 
-  const selectCard = useCallback((id: string | null) => {
-    dispatch({ type: 'SET_SELECTED_CARD', payload: id });
-  }, []);
+  const selectCard = useCallback(
+    (id: string, index: number, { ctrlKey, shiftKey }: { ctrlKey: boolean; shiftKey: boolean }) => {
+      let newSelected = [...state.selectedCardIds];
+      let lastId = state.lastSelectedCardId;
+
+      if (shiftKey && lastId) {
+        const cards = state.cards;
+        const lastIndex = cards.findIndex(c => c.id === lastId);
+        const currentIndex = index;
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          const [start, end] = lastIndex < currentIndex ? [lastIndex, currentIndex] : [currentIndex, lastIndex];
+          newSelected = cards.slice(start, end + 1).map(c => c.id);
+        } else {
+          newSelected = [id];
+        }
+        lastId = id;
+      } else if (ctrlKey) {
+        const set = new Set(newSelected);
+        if (set.has(id)) {
+          set.delete(id);
+        } else {
+          set.add(id);
+        }
+        newSelected = Array.from(set);
+        lastId = id;
+      } else {
+        newSelected = [id];
+        lastId = id;
+      }
+
+      dispatch({ type: 'SET_SELECTED_CARDS', payload: { ids: newSelected, lastId } });
+    },
+    [state.cards, state.selectedCardIds, state.lastSelectedCardId]
+  );
 
   const setFilter = useCallback((filter: Partial<AppState['filter']>) => {
     dispatch({ type: 'SET_FILTER', payload: filter });
