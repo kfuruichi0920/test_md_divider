@@ -51,6 +51,14 @@ export function Toolbar() {
     await actions.overwriteJson();
   }, [actions]);
 
+  const handleUndo = useCallback(() => {
+    actions.undo();
+  }, [actions]);
+
+  const handleRedo = useCallback(() => {
+    actions.redo();
+  }, [actions]);
+
   const handleFontFamilyChange = useCallback((fontFamily: string) => {
     actions.updateSettings({ fontFamily });
   }, [actions]);
@@ -109,6 +117,40 @@ export function Toolbar() {
           }}
         >
           📂 JSONファイルを開く
+        </button>
+
+        <button
+          onClick={handleUndo}
+          disabled={!state.canUndo}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: state.canUndo ? '#6c757d' : '#adb5bd',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: state.canUndo ? 'pointer' : 'not-allowed',
+            fontWeight: 'bold',
+            fontSize: '14px',
+          }}
+        >
+          ← 戻る
+        </button>
+
+        <button
+          onClick={handleRedo}
+          disabled={!state.canRedo}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: state.canRedo ? '#6c757d' : '#adb5bd',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: state.canRedo ? 'pointer' : 'not-allowed',
+            fontWeight: 'bold',
+            fontSize: '14px',
+          }}
+        >
+          進む →
         </button>
 
         {state.currentFile && (
