@@ -18,4 +18,4 @@ export interface SaveDataValidationResult {
   warnings: string[];
 }
 
-export const SAVE_DATA_VERSION = '1.2.0';
+export const SAVE_DATA_VERSION = '1.3.0';

@@ -83,6 +83,29 @@ export class SaveDataManager {
             }
           }
         }
+
+        // バージョン1.3.0以降の場合の属性フィールドチェック
+        if (data.version === '1.3.0' || (data.version && data.version > '1.2.0')) {
+          if (!card.displayAttribute) {
+            warnings.push(`カード${index + 1}: displayAttributeフィールドがありません（後方互換性のため警告のみ）`);
+          } else if (!['heading', 'main', 'misc'].includes(card.displayAttribute)) {
+            errors.push(`カード${index + 1}: displayAttributeは'heading'、'main'、'misc'のいずれかである必要があります`);
+          }
+          
+          if (!card.semanticAttribute) {
+            warnings.push(`カード${index + 1}: semanticAttributeフィールドがありません（後方互換性のため警告のみ）`);
+          } else if (!['none', 'text', 'figure', 'table', 'test', 'question'].includes(card.semanticAttribute)) {
+            errors.push(`カード${index + 1}: semanticAttributeは有効な値である必要があります`);
+          }
+          
+          if (card.contents === undefined) {
+            warnings.push(`カード${index + 1}: contentsフィールドがありません（後方互換性のため警告のみ）`);
+          }
+          
+          if (card.contentsTag === undefined) {
+            warnings.push(`カード${index + 1}: contentsTagフィールドがありません（後方互換性のため警告のみ）`);
+          }
+        }
       });
     }
 
@@ -115,6 +138,24 @@ export class SaveDataManager {
             originalContent: card.originalContent !== undefined ? card.originalContent : card.content,
             hasChanges: card.hasChanges !== undefined ? card.hasChanges : false,
             statusUpdatedAt: card.statusUpdatedAt ? new Date(card.statusUpdatedAt) : undefined,
+            // バージョン1.3.0の新フィールド（デフォルト値: ②-(1)本文）
+            displayAttribute: card.displayAttribute !== undefined ? card.displayAttribute : 'main',
+            semanticAttribute: card.semanticAttribute !== undefined ? card.semanticAttribute : 'text',
+            contents: card.contents !== undefined ? card.contents : card.content,
+            contentsTag: card.contentsTag !== undefined ? card.contentsTag : '',
+            // 属性別詳細情報
+            figureId: card.figureId,
+            figureData: card.figureData,
+            tableId: card.tableId,
+            tableData: card.tableData,
+            testId: card.testId,
+            testPrereq: card.testPrereq,
+            testStep: card.testStep,
+            testCons: card.testCons,
+            testSpec: card.testSpec,
+            qaId: card.qaId,
+            question: card.question,
+            answer: card.answer,
           })),
         };
         return { data: saveData, validation };

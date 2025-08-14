@@ -1,4 +1,4 @@
-import { Card, CardStatus, CardUpdatePayload, CardFilter, CardListOptions } from '@/models';
+import { Card, CardStatus, CardUpdatePayload, CardFilter, CardListOptions, DisplayAttribute, SemanticAttribute } from '@/models';
 
 export class CardManager {
   private cards: Map<string, Card> = new Map();
@@ -31,6 +31,11 @@ export class CardManager {
       statusUpdatedAt: undefined,
       originalPosition: position,
       displayOrder: position,
+      // 属性情報（デフォルト：②-(1)本文）
+      displayAttribute: DisplayAttribute.MAIN_CONTENT,
+      semanticAttribute: SemanticAttribute.TEXT,
+      contents: trimmedContent,
+      contentsTag: '',
     };
 
     this.cards.set(card.id, card);
@@ -52,6 +57,24 @@ export class CardManager {
       statusUpdatedAt: cardData.statusUpdatedAt,
       originalPosition: cardData.originalPosition !== undefined ? cardData.originalPosition : cardData.position,
       displayOrder: cardData.displayOrder !== undefined ? cardData.displayOrder : cardData.position,
+      // 属性情報（デフォルト値または復元値）
+      displayAttribute: cardData.displayAttribute || DisplayAttribute.MAIN_CONTENT,
+      semanticAttribute: cardData.semanticAttribute || SemanticAttribute.TEXT,
+      contents: cardData.contents || cardData.content.trim(),
+      contentsTag: cardData.contentsTag || '',
+      // 詳細情報（属性別）
+      figureId: cardData.figureId,
+      figureData: cardData.figureData,
+      tableId: cardData.tableId,
+      tableData: cardData.tableData,
+      testId: cardData.testId,
+      testPrereq: cardData.testPrereq,
+      testStep: cardData.testStep,
+      testCons: cardData.testCons,
+      testSpec: cardData.testSpec,
+      qaId: cardData.qaId,
+      question: cardData.question,
+      answer: cardData.answer,
     };
 
     this.cards.set(card.id, card);
@@ -251,6 +274,88 @@ export class CardManager {
       return `${card.displayOrder + 1} (元: ${card.originalPosition + 1})`;
     } else {
       return (card.displayOrder + 1).toString();
+    }
+  }
+
+  // 属性管理メソッド
+  updateCardAttribute(id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute): Card | null {
+    const card = this.cards.get(id);
+    if (!card) {
+      return null;
+    }
+
+    const updates: CardUpdatePayload = {
+      displayAttribute,
+      semanticAttribute,
+    };
+
+    // 属性変更時に不要なフィールドをクリア
+    this.clearUnusedAttributeFields(updates, displayAttribute, semanticAttribute);
+
+    return this.updateCard(id, updates);
+  }
+
+  // 属性に応じて不要なフィールドをクリア
+  private clearUnusedAttributeFields(updates: CardUpdatePayload, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute): void {
+    // すべての詳細情報フィールドをクリア
+    updates.figureId = undefined;
+    updates.figureData = undefined;
+    updates.tableId = undefined;
+    updates.tableData = undefined;
+    updates.testId = undefined;
+    updates.testPrereq = undefined;
+    updates.testStep = undefined;
+    updates.testCons = undefined;
+    updates.testSpec = undefined;
+    updates.qaId = undefined;
+    updates.question = undefined;
+    updates.answer = undefined;
+
+    // 属性に応じて必要なフィールドのみ保持（クリアしない）
+    switch (displayAttribute) {
+      case DisplayAttribute.MAIN_CONTENT:
+        switch (semanticAttribute) {
+          case SemanticAttribute.FIGURE:
+            delete updates.figureId;
+            delete updates.figureData;
+            break;
+          case SemanticAttribute.TABLE:
+            delete updates.tableId;
+            delete updates.tableData;
+            break;
+          case SemanticAttribute.TEST:
+            delete updates.testId;
+            delete updates.testPrereq;
+            delete updates.testStep;
+            delete updates.testCons;
+            delete updates.testSpec;
+            break;
+          case SemanticAttribute.QUESTION:
+            delete updates.qaId;
+            delete updates.question;
+            delete updates.answer;
+            break;
+        }
+        break;
+    }
+  }
+
+  // 表示属性別の許可された意味属性を取得
+  getAllowedSemanticAttributes(displayAttribute: DisplayAttribute): SemanticAttribute[] {
+    switch (displayAttribute) {
+      case DisplayAttribute.HEADING:
+      case DisplayAttribute.MISCELLANEOUS:
+        return [SemanticAttribute.NONE];
+      case DisplayAttribute.MAIN_CONTENT:
+        return [
+          SemanticAttribute.TEXT,
+          SemanticAttribute.FIGURE,
+          SemanticAttribute.TABLE,
+          SemanticAttribute.TEST,
+          SemanticAttribute.QUESTION,
+        ];
+      default:
+        return [SemanticAttribute.NONE];
     }
   }
 

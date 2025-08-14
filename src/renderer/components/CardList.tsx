@@ -1,6 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import { VariableSizeList as List } from 'react-window';
-import { Card } from '@/models';
+import { Card, CardUpdatePayload } from '@/models';
 import { CardItem } from './CardItem';
 import { useApp } from '../contexts/AppContext';
 
@@ -16,7 +16,8 @@ interface CardRowProps {
     cards: Card[];
     selectedCardId: string | null;
     onSelect: (id: string) => void;
-    onUpdate: (id: string, updates: any) => void;
+    onUpdate: (id: string, updates: CardUpdatePayload) => void;
+    onUpdateAttribute: (id: string, displayAttribute: any, semanticAttribute: any) => void;
     onMoveCard: (cardId: string, direction: 'up' | 'down') => void;
     onMoveCardToPosition: (cardId: string, targetIndex: number) => void;
     resetItemSize: (index: number) => void;
@@ -26,7 +27,7 @@ interface CardRowProps {
 }
 
 function CardRow({ index, style, data }: CardRowProps) {
-  const { cards, selectedCardId, onSelect, onUpdate, onMoveCard, onMoveCardToPosition, resetItemSize, resetAllItemSizes, updateItemSize } = data;
+  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, resetItemSize, resetAllItemSizes, updateItemSize } = data;
   const card = cards[index];
   const rowRef = React.useRef<HTMLDivElement>(null);
 
@@ -67,6 +68,11 @@ function CardRow({ index, style, data }: CardRowProps) {
         onUpdate={(id, updates) => {
           onUpdate(id, updates);
           // カード更新時にサイズをリセット
+          resetItemSize(index);
+        }}
+        onUpdateAttribute={(id, displayAttribute, semanticAttribute) => {
+          onUpdateAttribute(id, displayAttribute, semanticAttribute);
+          // 属性更新時にサイズをリセット
           resetItemSize(index);
         }}
         onMoveCard={(cardId, direction) => {
@@ -151,9 +157,59 @@ export function CardList({ cards, height }: CardListProps) {
       // 初期内容のヘッダー（20px）+ コンテンツ + パディング
       originalContentHeight = 20 + (originalTotalLines * fontSize * 1.8) + 16;
     }
+
+    // 属性別の詳細情報編集エリアの高さ計算
+    let attributeContentHeight = 0;
+    
+    // 共通フィールド（contents, contents-tag）は常に表示
+    let commonFieldsHeight = 
+      40 + // タイトル部分
+      20 + 60 + // Contents（ラベル + テキストエリア）
+      20 + 30 + // Contents Tag（ラベル + input）
+      16; // パディング
+    attributeContentHeight += commonFieldsHeight;
+
+    // 属性別の追加フィールド
+    if (card.displayAttribute === 'main') {
+      switch (card.semanticAttribute) {
+        case 'figure':
+          // Figure ID + Figure Data
+          attributeContentHeight += 
+            40 + // タイトル部分
+            20 + 30 + // Figure ID（ラベル + input）
+            20 + 80 + // Figure Data（ラベル + textarea）
+            16; // パディング
+          break;
+        case 'table':
+          // Table ID + Table Data
+          attributeContentHeight += 
+            40 + // タイトル部分
+            20 + 30 + // Table ID（ラベル + input）
+            20 + 80 + // Table Data（ラベル + textarea）
+            16; // パディング
+          break;
+        case 'test':
+          // Test ID + 4つのテキストエリア
+          attributeContentHeight += 
+            40 + // タイトル部分
+            20 + 30 + // Test ID（ラベル + input）
+            (20 + 60) * 4 + // 4つのテキストエリア（ラベル + textarea各60px）
+            16; // パディング
+          break;
+        case 'question':
+          // QA ID + Question + Answer
+          attributeContentHeight += 
+            40 + // タイトル部分
+            20 + 30 + // QA ID（ラベル + input）
+            20 + 80 + // Question（ラベル + textarea）
+            20 + 80 + // Answer（ラベル + textarea）
+            16; // パディング
+          break;
+      }
+    }
     
     // 総高さを計算
-    const totalHeight = headerHeight + contentHeight + originalContentHeight + footerHeight + 24; // 24はマージン
+    const totalHeight = headerHeight + contentHeight + originalContentHeight + attributeContentHeight + footerHeight + 24; // 24はマージン
 
     // キャッシュに保存
     itemSizes.current[index] = totalHeight;
@@ -221,6 +277,7 @@ export function CardList({ cards, height }: CardListProps) {
     selectedCardId: state.selectedCardId,
     onSelect: actions.selectCard,
     onUpdate: actions.updateCard,
+    onUpdateAttribute: actions.updateCardAttribute,
     onMoveCard: actions.moveCard,
     onMoveCardToPosition: actions.moveCardToPosition,
     resetItemSize,

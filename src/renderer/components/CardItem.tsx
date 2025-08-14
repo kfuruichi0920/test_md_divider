@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Card, CardStatus } from '@/models';
+import { Card, CardStatus, DisplayAttribute, SemanticAttribute, CardUpdatePayload } from '@/models';
 import { useApp } from '../contexts/AppContext';
 import * as Diff from 'diff';
 import { renderMarkdown } from '@/utils';
@@ -43,7 +43,8 @@ interface CardItemProps {
   card: Card;
   isSelected: boolean;
   onSelect: (id: string) => void;
-  onUpdate: (id: string, updates: { content?: string; status?: CardStatus }) => void;
+  onUpdate: (id: string, updates: CardUpdatePayload) => void;
+  onUpdateAttribute?: (id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => void;
   onMoveCard?: (cardId: string, direction: 'up' | 'down') => void;
   onMoveCardToPosition?: (cardId: string, targetIndex: number) => void;
   index: number;
@@ -61,10 +62,33 @@ const STATUS_LABELS = {
   [CardStatus.PROCESSED]: '処理済み',
 };
 
-export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onMoveCardToPosition, index }: CardItemProps) {
+const DISPLAY_ATTRIBUTE_LABELS = {
+  [DisplayAttribute.HEADING]: '①見出し',
+  [DisplayAttribute.MAIN_CONTENT]: '②本文',
+  [DisplayAttribute.MISCELLANEOUS]: '③雑記',
+};
+
+const SEMANTIC_ATTRIBUTE_LABELS = {
+  [SemanticAttribute.NONE]: '任意',
+  [SemanticAttribute.TEXT]: '(1)本文',
+  [SemanticAttribute.FIGURE]: '(2)図',
+  [SemanticAttribute.TABLE]: '(3)表',
+  [SemanticAttribute.TEST]: '(4)試験',
+  [SemanticAttribute.QUESTION]: '(5)質問',
+};
+
+// 表示属性別の背景色
+const DISPLAY_ATTRIBUTE_COLORS = {
+  [DisplayAttribute.HEADING]: '#fff9c4',      // 薄い黄色（見出し）
+  [DisplayAttribute.MAIN_CONTENT]: '#f0f9ff', // 薄い青（本文）
+  [DisplayAttribute.MISCELLANEOUS]: '#f3e8ff', // 薄い紫（雑記）
+};
+
+export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, index }: CardItemProps) {
   const { state } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
+  const [isEditingAttribute, setIsEditingAttribute] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const adjustTextareaHeight = useCallback(() => {
@@ -155,6 +179,22 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
     onUpdate(card.id, { status });
   }, [card.id, onUpdate]);
 
+  const handleDisplayAttributeChange = useCallback((displayAttribute: DisplayAttribute) => {
+    if (onUpdateAttribute && state.cardManager) {
+      const allowedSemanticAttributes = state.cardManager.getAllowedSemanticAttributes(displayAttribute);
+      const currentSemantic = allowedSemanticAttributes.includes(card.semanticAttribute) 
+        ? card.semanticAttribute 
+        : allowedSemanticAttributes[0];
+      onUpdateAttribute(card.id, displayAttribute, currentSemantic);
+    }
+  }, [card.id, card.semanticAttribute, onUpdateAttribute, state.cardManager]);
+
+  const handleSemanticAttributeChange = useCallback((semanticAttribute: SemanticAttribute) => {
+    if (onUpdateAttribute) {
+      onUpdateAttribute(card.id, card.displayAttribute, semanticAttribute);
+    }
+  }, [card.id, card.displayAttribute, onUpdateAttribute]);
+
   const handleClick = useCallback(() => {
     onSelect(card.id);
   }, [card.id, onSelect]);
@@ -211,6 +251,232 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
     }
   }, [card.id, index, onMoveCardToPosition]);
 
+  // 属性別の詳細情報を編集可能エリアとして表示する関数
+  const renderAttributeSpecificContent = useCallback(() => {
+    if (!onUpdate) return null;
+
+    const commonFieldStyle = {
+      width: '100%',
+      padding: '4px 8px',
+      border: '1px solid #ddd',
+      borderRadius: '4px',
+      fontSize: '11px',
+      fontFamily: state.settings.fontFamily,
+      marginBottom: '6px',
+      resize: 'vertical' as const,
+    };
+
+    const labelStyle = {
+      fontSize: '11px',
+      fontWeight: 'bold' as const,
+      color: '#555',
+      marginBottom: '2px',
+      display: 'block',
+    };
+
+    const containerStyle = {
+      marginTop: '12px',
+      padding: '8px',
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #e9ecef',
+      borderRadius: '6px',
+    };
+
+    // 共通フィールド（contents, contents-tag）
+    const commonFields = (
+      <div style={containerStyle}>
+        <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}>
+          📝 詳細情報
+        </div>
+        
+        <label style={labelStyle}>Contents:</label>
+        <textarea
+          value={card.contents || ''}
+          onChange={(e) => onUpdate(card.id, { contents: e.target.value })}
+          onClick={(e) => e.stopPropagation()}
+          style={{ ...commonFieldStyle, minHeight: '60px' }}
+          placeholder="コンテンツを入力してください"
+        />
+
+        <label style={labelStyle}>Contents Tag:</label>
+        <input
+          type="text"
+          value={card.contentsTag || ''}
+          onChange={(e) => onUpdate(card.id, { contentsTag: e.target.value })}
+          onClick={(e) => e.stopPropagation()}
+          style={commonFieldStyle}
+          placeholder="タグを入力してください"
+        />
+      </div>
+    );
+
+    // 属性別の追加フィールド
+    let specificFields = null;
+
+    if (card.displayAttribute === DisplayAttribute.MAIN_CONTENT) {
+      switch (card.semanticAttribute) {
+        case SemanticAttribute.FIGURE:
+          specificFields = (
+            <div style={containerStyle}>
+              <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}>
+                🖼️ 図情報
+              </div>
+              
+              <label style={labelStyle}>Figure ID:</label>
+              <input
+                type="text"
+                value={card.figureId || ''}
+                onChange={(e) => onUpdate(card.id, { figureId: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={commonFieldStyle}
+                placeholder="図IDを入力してください"
+              />
+
+              <label style={labelStyle}>Figure Data:</label>
+              <textarea
+                value={card.figureData || ''}
+                onChange={(e) => onUpdate(card.id, { figureData: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '80px' }}
+                placeholder="図データを入力してください"
+              />
+            </div>
+          );
+          break;
+
+        case SemanticAttribute.TABLE:
+          specificFields = (
+            <div style={containerStyle}>
+              <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}>
+                📊 表情報
+              </div>
+              
+              <label style={labelStyle}>Table ID:</label>
+              <input
+                type="text"
+                value={card.tableId || ''}
+                onChange={(e) => onUpdate(card.id, { tableId: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={commonFieldStyle}
+                placeholder="表IDを入力してください"
+              />
+
+              <label style={labelStyle}>Table Data:</label>
+              <textarea
+                value={card.tableData || ''}
+                onChange={(e) => onUpdate(card.id, { tableData: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '80px' }}
+                placeholder="表データを入力してください"
+              />
+            </div>
+          );
+          break;
+
+        case SemanticAttribute.TEST:
+          specificFields = (
+            <div style={containerStyle}>
+              <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}>
+                🧪 試験情報
+              </div>
+              
+              <label style={labelStyle}>Test ID:</label>
+              <input
+                type="text"
+                value={card.testId || ''}
+                onChange={(e) => onUpdate(card.id, { testId: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={commonFieldStyle}
+                placeholder="試験IDを入力してください"
+              />
+
+              <label style={labelStyle}>Test Prerequisite:</label>
+              <textarea
+                value={card.testPrereq || ''}
+                onChange={(e) => onUpdate(card.id, { testPrereq: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '60px' }}
+                placeholder="前提条件を入力してください"
+              />
+
+              <label style={labelStyle}>Test Step:</label>
+              <textarea
+                value={card.testStep || ''}
+                onChange={(e) => onUpdate(card.id, { testStep: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '60px' }}
+                placeholder="手順を入力してください"
+              />
+
+              <label style={labelStyle}>Test Constraints:</label>
+              <textarea
+                value={card.testCons || ''}
+                onChange={(e) => onUpdate(card.id, { testCons: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '60px' }}
+                placeholder="制約を入力してください"
+              />
+
+              <label style={labelStyle}>Test Specification:</label>
+              <textarea
+                value={card.testSpec || ''}
+                onChange={(e) => onUpdate(card.id, { testSpec: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '60px' }}
+                placeholder="仕様を入力してください"
+              />
+            </div>
+          );
+          break;
+
+        case SemanticAttribute.QUESTION:
+          specificFields = (
+            <div style={containerStyle}>
+              <div style={{ marginBottom: '8px', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}>
+                ❓ QA情報
+              </div>
+              
+              <label style={labelStyle}>QA ID:</label>
+              <input
+                type="text"
+                value={card.qaId || ''}
+                onChange={(e) => onUpdate(card.id, { qaId: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={commonFieldStyle}
+                placeholder="QA IDを入力してください"
+              />
+
+              <label style={labelStyle}>Question:</label>
+              <textarea
+                value={card.question || ''}
+                onChange={(e) => onUpdate(card.id, { question: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '80px' }}
+                placeholder="質問を入力してください"
+              />
+
+              <label style={labelStyle}>Answer:</label>
+              <textarea
+                value={card.answer || ''}
+                onChange={(e) => onUpdate(card.id, { answer: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                style={{ ...commonFieldStyle, minHeight: '80px' }}
+                placeholder="回答を入力してください"
+              />
+            </div>
+          );
+          break;
+      }
+    }
+
+    return (
+      <div>
+        {commonFields}
+        {specificFields}
+      </div>
+    );
+  }, [card, onUpdate, state.settings.fontFamily]);
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -220,7 +486,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
         borderRadius: '8px',
         padding: '12px',
         marginBottom: '12px',
-        backgroundColor: STATUS_COLORS[card.status],
+        backgroundColor: DISPLAY_ATTRIBUTE_COLORS[card.displayAttribute],
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         position: 'relative',
@@ -324,23 +590,73 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
           )}
         </div>
         
-        <select
-          value={card.status}
-          onChange={(e) => handleStatusChange(e.target.value as CardStatus)}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            padding: '4px 8px',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            fontSize: '12px',
-          }}
-        >
-          {Object.entries(STATUS_LABELS).map(([status, label]) => (
-            <option key={status} value={status}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+        }}>
+          {onUpdateAttribute && (
+            <>
+              <select
+                value={card.displayAttribute}
+                onChange={(e) => handleDisplayAttributeChange(e.target.value as DisplayAttribute)}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  minWidth: '60px',
+                }}
+                title="表示属性"
+              >
+                {Object.entries(DISPLAY_ATTRIBUTE_LABELS).map(([attr, label]) => (
+                  <option key={attr} value={attr}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+
+              {state.cardManager && (
+                <select
+                  value={card.semanticAttribute}
+                  onChange={(e) => handleSemanticAttributeChange(e.target.value as SemanticAttribute)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    padding: '4px 8px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    minWidth: '60px',
+                  }}
+                  title="意味属性"
+                >
+                  {state.cardManager.getAllowedSemanticAttributes(card.displayAttribute).map((attr) => (
+                    <option key={attr} value={attr}>
+                      {SEMANTIC_ATTRIBUTE_LABELS[attr]}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          )}
+          <select
+            value={card.status}
+            onChange={(e) => handleStatusChange(e.target.value as CardStatus)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              fontSize: '12px',
+            }}
+          >
+            {Object.entries(STATUS_LABELS).map(([status, label]) => (
+              <option key={status} value={status}>
+                {label}
+              </option>
+            ))}
+          </select>        </div>
       </div>
 
       {isEditing ? (
@@ -482,6 +798,8 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onM
               </div>
             </div>
           )}
+
+          {renderAttributeSpecificContent()}
         </div>
       )}
 
