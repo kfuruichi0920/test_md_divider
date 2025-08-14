@@ -27,6 +27,7 @@ interface AppState {
     redoCount: number;
   };
   collapsedCardIds: Set<string>;
+  cardDisplayModes: Record<string, 'full' | 'single'>;
 }
 
 type AppAction =
@@ -42,7 +43,8 @@ type AppAction =
   | { type: 'CLEAR_LOGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> }
   | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } }
-  | { type: 'TOGGLE_COLLAPSE'; payload: string };
+  | { type: 'TOGGLE_COLLAPSE'; payload: string }
+  | { type: 'TOGGLE_CARD_DISPLAY_MODE'; payload: { cardId: string } };
 
 interface AppContextType {
   state: AppState & { cardManager: CardManager };
@@ -66,6 +68,7 @@ interface AppContextType {
     undo: () => void;
     redo: () => void;
     toggleCollapse: (cardId: string) => void;
+    toggleCardDisplayMode: (cardId: string) => void;
   };
 }
 
@@ -91,6 +94,7 @@ const initialState: AppState = {
     redoCount: 0,
   },
   collapsedCardIds: new Set(),
+  cardDisplayModes: {},
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -124,7 +128,13 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'CLEAR_LOGS':
       return { ...state, logs: [] };
     case 'UPDATE_SETTINGS':
-      return { ...state, settings: { ...state.settings, ...action.payload } };
+      return {
+        ...state,
+        settings: { ...state.settings, ...action.payload },
+        ...(action.payload.cardDisplayMode && action.payload.cardDisplayMode !== state.settings.cardDisplayMode
+          ? { cardDisplayModes: {} }
+          : {}),
+      };
     case 'SET_HISTORY':
       return { ...state, history: action.payload };
     case 'TOGGLE_COLLAPSE': {
@@ -135,6 +145,18 @@ function appReducer(state: AppState, action: AppAction): AppState {
         newSet.add(action.payload);
       }
       return { ...state, collapsedCardIds: newSet };
+    }
+    case 'TOGGLE_CARD_DISPLAY_MODE': {
+      const { cardId } = action.payload;
+      const currentMode = state.cardDisplayModes[cardId] || state.settings.cardDisplayMode;
+      const newMode = currentMode === 'full' ? 'single' : 'full';
+      const newModes = { ...state.cardDisplayModes };
+      if (newMode === state.settings.cardDisplayMode) {
+        delete newModes[cardId];
+      } else {
+        newModes[cardId] = newMode;
+      }
+      return { ...state, cardDisplayModes: newModes };
     }
     default:
       return state;
@@ -200,6 +222,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toggleCollapse = useCallback((cardId: string) => {
     dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
+  }, []);
+
+  const toggleCardDisplayMode = useCallback((cardId: string) => {
+    dispatch({ type: 'TOGGLE_CARD_DISPLAY_MODE', payload: { cardId } });
   }, []);
 
   // 初期化時にログ追加
@@ -613,6 +639,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       undo,
       redo,
       toggleCollapse,
+      toggleCardDisplayMode,
     },
   };
 
