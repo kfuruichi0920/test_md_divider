@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { VariableSizeList as List } from 'react-window';
 import { Card, CardUpdatePayload } from '@/models';
 import { CardItem } from './CardItem';
@@ -34,6 +34,16 @@ function CardRow({ index, style, data }: CardRowProps) {
   const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize, onToggleCardDisplayMode } = data;
   const card = cards[index];
   const rowRef = React.useRef<HTMLDivElement>(null);
+  const { state } = useApp();
+  const isCollapsing = state.collapsingCardIds.has(card.id);
+  const isExpanding = state.expandingCardIds.has(card.id);
+  const [visible, setVisible] = useState(!isExpanding);
+
+  useEffect(() => {
+    if (isExpanding) {
+      requestAnimationFrame(() => setVisible(true));
+    }
+  }, [isExpanding]);
 
   // 実際のサイズを測定
   React.useEffect(() => {
@@ -58,11 +68,15 @@ function CardRow({ index, style, data }: CardRowProps) {
   }, [index, updateItemSize]);
 
   return (
-    <div 
+    <div
       ref={rowRef}
       style={{
         ...style,
         padding: '0 12px',
+        transition: 'transform 0.3s ease, opacity 0.3s ease',
+        transformOrigin: 'top',
+        transform: isCollapsing || !visible ? 'scaleY(0)' : 'scaleY(1)',
+        opacity: isCollapsing || !visible ? 0 : 1,
       }}>
       <ErrorBoundary>
         <CardItem

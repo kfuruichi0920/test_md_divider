@@ -27,6 +27,8 @@ interface AppState {
     redoCount: number;
   };
   collapsedCardIds: Set<string>;
+  collapsingCardIds: Set<string>;
+  expandingCardIds: Set<string>;
   cardDisplayModes: Record<string, 'full' | 'single'>;
 }
 
@@ -44,6 +46,10 @@ type AppAction =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> }
   | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } }
   | { type: 'TOGGLE_COLLAPSE'; payload: string }
+  | { type: 'ADD_COLLAPSING_CARDS'; payload: string[] }
+  | { type: 'REMOVE_COLLAPSING_CARDS'; payload: string[] }
+  | { type: 'ADD_EXPANDING_CARDS'; payload: string[] }
+  | { type: 'REMOVE_EXPANDING_CARDS'; payload: string[] }
   | { type: 'TOGGLE_CARD_DISPLAY_MODE'; payload: { cardId: string } };
 
 interface AppContextType {
@@ -94,6 +100,8 @@ const initialState: AppState = {
     redoCount: 0,
   },
   collapsedCardIds: new Set(),
+  collapsingCardIds: new Set(),
+  expandingCardIds: new Set(),
   cardDisplayModes: {},
 };
 
@@ -145,6 +153,26 @@ function appReducer(state: AppState, action: AppAction): AppState {
         newSet.add(action.payload);
       }
       return { ...state, collapsedCardIds: newSet };
+    }
+    case 'ADD_COLLAPSING_CARDS': {
+      const newSet = new Set(state.collapsingCardIds);
+      action.payload.forEach(id => newSet.add(id));
+      return { ...state, collapsingCardIds: newSet };
+    }
+    case 'REMOVE_COLLAPSING_CARDS': {
+      const newSet = new Set(state.collapsingCardIds);
+      action.payload.forEach(id => newSet.delete(id));
+      return { ...state, collapsingCardIds: newSet };
+    }
+    case 'ADD_EXPANDING_CARDS': {
+      const newSet = new Set(state.expandingCardIds);
+      action.payload.forEach(id => newSet.add(id));
+      return { ...state, expandingCardIds: newSet };
+    }
+    case 'REMOVE_EXPANDING_CARDS': {
+      const newSet = new Set(state.expandingCardIds);
+      action.payload.forEach(id => newSet.delete(id));
+      return { ...state, expandingCardIds: newSet };
     }
     case 'TOGGLE_CARD_DISPLAY_MODE': {
       const { cardId } = action.payload;
@@ -220,9 +248,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateHistoryState();
   }, [cloneCards, restoreCards, updateHistoryState]);
 
-  const toggleCollapse = useCallback((cardId: string) => {
-    dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
-  }, []);
+  const toggleCollapse = useCallback(
+    (cardId: string) => {
+      const descendants = cardManager
+        .getDescendantCards(cardId)
+        .map(card => card.id);
+
+      if (state.collapsedCardIds.has(cardId)) {
+        dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
+        if (descendants.length > 0) {
+          dispatch({ type: 'ADD_EXPANDING_CARDS', payload: descendants });
+          setTimeout(() => {
+            dispatch({ type: 'REMOVE_EXPANDING_CARDS', payload: descendants });
+          }, 300);
+        }
+      } else {
+        if (descendants.length > 0) {
+          dispatch({ type: 'ADD_COLLAPSING_CARDS', payload: descendants });
+          setTimeout(() => {
+            dispatch({ type: 'REMOVE_COLLAPSING_CARDS', payload: descendants });
+            dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
+          }, 300);
+        } else {
+          dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
+        }
+      }
+    },
+    [cardManager, state.collapsedCardIds]
+  );
 
   const toggleCardDisplayMode = useCallback((cardId: string) => {
     dispatch({ type: 'TOGGLE_CARD_DISPLAY_MODE', payload: { cardId } });

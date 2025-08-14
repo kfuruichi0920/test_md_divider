@@ -557,7 +557,15 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
               }}
               title={isCollapsed ? '展開' : '折りたたみ'}
             >
-              {isCollapsed ? '▶' : '▼'}
+              <span
+                style={{
+                  display: 'inline-block',
+                  transition: 'transform 0.3s ease',
+                  transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                }}
+              >
+                ▶
+              </span>
             </button>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
