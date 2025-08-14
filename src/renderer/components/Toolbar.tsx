@@ -96,7 +96,7 @@ export function Toolbar() {
             fontSize: '14px',
           }}
         >
-          📄 テキストファイルを開く
+          📄 TXTファイルを開く
         </button>
 
         <button
@@ -166,7 +166,7 @@ export function Toolbar() {
             opacity: state.history.undoCount === 0 ? 0.5 : 1,
           }}
         >
-          ↶ 戻る
+          ⏪戻る
         </button>
 
         <button
@@ -184,7 +184,7 @@ export function Toolbar() {
             opacity: state.history.redoCount === 0 ? 0.5 : 1,
           }}
         >
-          ↷ 進む
+          ⏩ 進む
         </button>
       </div>
 
@@ -319,6 +319,13 @@ export function Toolbar() {
                 <option value="'Hiragino Sans', 'Noto Sans JP', sans-serif">ヒラギノ角ゴ</option>
                 <option value="'Yu Gothic', 'YuGothic', sans-serif">游ゴシック</option>
                 <option value="'Meiryo', sans-serif">メイリオ</option>
+                <option value="'MS Gothic', 'ＭＳ ゴシック', 'MS PGothic', 'ＭＳ Ｐゴシック', monospace">MSゴシック</option>
+                <option value="'MS Mincho', 'ＭＳ 明朝', 'MS PMincho', 'ＭＳ Ｐ明朝', serif">MS明朝</option>
+                <option value="'Noto Sans JP', sans-serif">Noto Sans JP</option>
+                <option value="'Noto Serif JP', serif">Noto Serif JP</option>
+                <option value="'Osaka', 'Osaka－等幅', sans-serif">Osaka</option>
+                <option value="'IPAexGothic', sans-serif">IPAexゴシック</option>
+                <option value="'IPAexMincho', serif">IPAex明朝</option>
               </select>
             </label>
 

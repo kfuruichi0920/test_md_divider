@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
-import { Card, CardStatus, CardUpdatePayload } from '@/models';
+import { Card, CardStatus, CardUpdatePayload, DisplayAttribute, SemanticAttribute } from '@/models';
 import { CardManager, SaveDataManager } from '@/services';
 import { TextProcessor } from '@/utils';
 import { LogEntry, LogLevel } from '../components/StatusLog';
@@ -49,6 +49,7 @@ interface AppContextType {
     saveJson: () => Promise<void>;
     overwriteJson: () => Promise<void>;
     updateCard: (id: string, updates: CardUpdatePayload) => void;
+    updateCardAttribute: (id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => void;
     selectCard: (id: string | null) => void;
     setFilter: (filter: Partial<AppState['filter']>) => void;
     clearFilter: () => void;
@@ -57,6 +58,8 @@ interface AppContextType {
     updateSettings: (settings: Partial<AppState['settings']>) => void;
     moveCard: (cardId: string, direction: 'up' | 'down') => void;
     moveCardToPosition: (cardId: string, targetIndex: number) => void;
+    indentCard: (cardId: string) => void;
+    outdentCard: (cardId: string) => void;
     undo: () => void;
     redo: () => void;
   };
@@ -278,6 +281,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addLog, cloneCards, updateHistoryState]);
 
+  const updateCardAttribute = useCallback((id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const updatedCard = cardManager.updateCardAttribute(id, displayAttribute, semanticAttribute);
+    if (updatedCard) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
+      dispatch({ type: 'UPDATE_CARD', payload: updatedCard });
+
+      // 属性変更をログに記録
+      const displayLabels = { heading: '①見出し', main: '②本文', misc: '③雑記' };
+      const semanticLabels = { 
+        none: '任意', text: '(1)本文', figure: '(2)図', 
+        table: '(3)表', test: '(4)試験', question: '(5)質問' 
+      };
+      addLog(LogLevel.INFO, 
+        `カード #${updatedCard.position + 1} の属性を変更: ${displayLabels[displayAttribute]} - ${semanticLabels[semanticAttribute]}`
+      );
+    }
+  }, [addLog, cloneCards, updateHistoryState]);
+
   const selectCard = useCallback((id: string | null) => {
     dispatch({ type: 'SET_SELECTED_CARD', payload: id });
   }, []);
@@ -361,6 +388,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addLog, cloneCards, updateHistoryState]);
 
+  const indentCard = useCallback((cardId: string) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const success = cardManager.indentCard(cardId);
+    if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を階層レベル ${card.hierarchyLevel} にインデントしました`);
+      }
+    }
+  }, [addLog, cloneCards, updateHistoryState]);
+
+  const outdentCard = useCallback((cardId: string) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const success = cardManager.outdentCard(cardId);
+    if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を階層レベル ${card.hierarchyLevel} にアウトデントしました`);
+      }
+    }
+  }, [addLog, cloneCards, updateHistoryState]);
+
   const loadJsonFile = useCallback(async (filePath: string) => {
     undoStack.current = [];
     redoStack.current = [];
@@ -411,6 +472,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           originalContent: cardData.originalContent,
           hasChanges: cardData.hasChanges,
           statusUpdatedAt: cardData.statusUpdatedAt,
+          displayAttribute: cardData.displayAttribute,
+          semanticAttribute: cardData.semanticAttribute,
+          contents: cardData.contents,
+          contentsTag: cardData.contentsTag,
+          figureId: cardData.figureId,
+          figureData: cardData.figureData,
+          tableId: cardData.tableId,
+          tableData: cardData.tableData,
+          testId: cardData.testId,
+          testPrereq: cardData.testPrereq,
+          testStep: cardData.testStep,
+          testCons: cardData.testCons,
+          testSpec: cardData.testSpec,
+          qaId: cardData.qaId,
+          question: cardData.question,
+          answer: cardData.answer,
+          hierarchyLevel: cardData.hierarchyLevel,
+          parentId: cardData.parentId,
         });
       });
 
@@ -488,6 +567,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       saveJson,
       overwriteJson,
       updateCard,
+      updateCardAttribute,
       selectCard,
       setFilter,
       clearFilter,
@@ -496,6 +576,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       moveCard,
       moveCardToPosition,
+      indentCard,
+      outdentCard,
       undo,
       redo,
     },
