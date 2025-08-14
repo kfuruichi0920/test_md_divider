@@ -242,7 +242,8 @@ export function CardList({ cards, height }: CardListProps) {
     if (itemSizes.current[index]) {
       delete itemSizes.current[index];
       if (listRef.current) {
-        listRef.current.resetAfterIndex(index);
+        // Force react-window to recalculate sizes immediately
+        listRef.current.resetAfterIndex(index, true);
       }
     }
   }, []);
@@ -251,7 +252,8 @@ export function CardList({ cards, height }: CardListProps) {
   const resetAllItemSizes = useCallback(() => {
     itemSizes.current = [];
     if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
+      // Force a full recompute so expanded cards reposition correctly
+      listRef.current.resetAfterIndex(0, true);
     }
   }, []);
 
@@ -260,7 +262,8 @@ export function CardList({ cards, height }: CardListProps) {
     if (itemSizes.current[index] !== actualHeight) {
       itemSizes.current[index] = actualHeight;
       if (listRef.current) {
-        listRef.current.resetAfterIndex(index);
+        // Update layout for the measured item immediately
+        listRef.current.resetAfterIndex(index, true);
       }
     }
   }, []);
