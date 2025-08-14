@@ -113,16 +113,17 @@ export function CardList({ cards, height }: CardListProps) {
 
   // カードのサイズを推定する関数
   const getItemSize = useCallback((index: number) => {
-    // 基本サイズを計算
     const card = cards[index];
     if (!card) return 140;
 
-    // キャッシュされたサイズがあれば使用
+    if (state.settings.cardDisplayMode === 'single') {
+      return 60;
+    }
+
     if (itemSizes.current[index]) {
       return itemSizes.current[index];
     }
 
-    // 設定からフォントサイズを取得
     const fontSize = state.settings.fontSize || 14;
     const lineHeight = fontSize * 1.5;
     
@@ -229,7 +230,7 @@ export function CardList({ cards, height }: CardListProps) {
     // キャッシュに保存
     itemSizes.current[index] = totalHeight;
     return totalHeight;
-  }, [cards, state.settings.fontSize]);
+  }, [cards, state.settings.fontSize, state.settings.cardDisplayMode]);
 
   // サイズをリセットする関数
   const resetItemSize = useCallback((index: number) => {
@@ -270,7 +271,7 @@ export function CardList({ cards, height }: CardListProps) {
   // フォント設定が変更された時にサイズをリセット
   React.useEffect(() => {
     resetAllItemSizes();
-  }, [state.settings.fontSize, state.settings.fontFamily, resetAllItemSizes]);
+  }, [state.settings.fontSize, state.settings.fontFamily, state.settings.cardDisplayMode, resetAllItemSizes]);
 
   if (cards.length === 0) {
     return (

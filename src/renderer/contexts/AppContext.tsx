@@ -20,11 +20,13 @@ interface AppState {
     fontFamily: string;
     fontSize: number;
     renderMode: 'text' | 'markdown';
+    cardDisplayMode: 'full' | 'single';
   };
   history: {
     undoCount: number;
     redoCount: number;
   };
+  collapsedCardIds: Set<string>;
 }
 
 type AppAction =
@@ -39,7 +41,8 @@ type AppAction =
   | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'CLEAR_LOGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> }
-  | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } };
+  | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } }
+  | { type: 'TOGGLE_COLLAPSE'; payload: string };
 
 interface AppContextType {
   state: AppState & { cardManager: CardManager };
@@ -62,6 +65,7 @@ interface AppContextType {
     outdentCard: (cardId: string) => void;
     undo: () => void;
     redo: () => void;
+    toggleCollapse: (cardId: string) => void;
   };
 }
 
@@ -80,11 +84,13 @@ const initialState: AppState = {
     fontFamily: 'system-ui, -apple-system, sans-serif',
     fontSize: 12,
     renderMode: 'text',
+    cardDisplayMode: 'full',
   },
   history: {
     undoCount: 0,
     redoCount: 0,
   },
+  collapsedCardIds: new Set(),
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -121,6 +127,15 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, settings: { ...state.settings, ...action.payload } };
     case 'SET_HISTORY':
       return { ...state, history: action.payload };
+    case 'TOGGLE_COLLAPSE': {
+      const newSet = new Set(state.collapsedCardIds);
+      if (newSet.has(action.payload)) {
+        newSet.delete(action.payload);
+      } else {
+        newSet.add(action.payload);
+      }
+      return { ...state, collapsedCardIds: newSet };
+    }
     default:
       return state;
   }
@@ -183,6 +198,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateHistoryState();
   }, [cloneCards, restoreCards, updateHistoryState]);
 
+  const toggleCollapse = useCallback((cardId: string) => {
+    dispatch({ type: 'TOGGLE_COLLAPSE', payload: cardId });
+  }, []);
+
   // 初期化時にログ追加
   useEffect(() => {
     const initialLogEntry: LogEntry = {
@@ -195,13 +214,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateCardsList = useCallback(() => {
-    const cards = cardManager.getAllCards({
+    let cards = cardManager.getAllCards({
       filter: state.filter,
       sortOrder: 'displayOrder',
       sortDirection: 'asc',
     });
+
+    if (state.collapsedCardIds.size > 0) {
+      cards = cards.filter(card => {
+        let parentId = card.parentId;
+        while (parentId) {
+          if (state.collapsedCardIds.has(parentId)) return false;
+          const parent = cardManager.getCard(parentId);
+          parentId = parent?.parentId;
+        }
+        return true;
+      });
+    }
+
     dispatch({ type: 'SET_CARDS', payload: cards });
-  }, [state.filter]);
+  }, [state.filter, state.collapsedCardIds]);
 
   useEffect(() => {
     cardManager.addListener(updateCardsList);
@@ -580,6 +612,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       outdentCard,
       undo,
       redo,
+      toggleCollapse,
     },
   };
 

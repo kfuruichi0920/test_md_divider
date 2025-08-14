@@ -87,11 +87,18 @@ const DISPLAY_ATTRIBUTE_COLORS = {
 };
 
 export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index }: CardItemProps) {
-  const { state } = useApp();
+  const { state, actions } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
   const [isEditingAttribute, setIsEditingAttribute] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const summaryLine = (card.contents || '').split('\n')[0];
+  const hasChildren = state.cardManager.getChildCards(card.id).length > 0;
+  const isCollapsed = state.collapsedCardIds.has(card.id);
+  const handleToggleCollapse = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    actions.toggleCollapse(card.id);
+  }, [actions, card.id]);
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -533,8 +540,25 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
           alignItems: 'center',
           gap: '6px',
         }}>
+          {hasChildren && (
+            <button
+              onClick={handleToggleCollapse}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                border: '1px solid #ddd',
+                backgroundColor: '#f8f9fa',
+                cursor: 'pointer',
+                padding: '2px 4px',
+                borderRadius: '4px',
+                fontSize: '12px',
+              }}
+              title={isCollapsed ? '展開' : '折りたたみ'}
+            >
+              {isCollapsed ? '▶' : '▼'}
+            </button>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div 
+            <div
               draggable
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
@@ -833,24 +857,25 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         <div>
           <div
             style={{
-              whiteSpace: 'pre-wrap',
+              whiteSpace: state.settings.cardDisplayMode === 'single' ? 'nowrap' : 'pre-wrap',
               lineHeight: '1.5',
               fontFamily: state.settings.fontFamily,
               fontSize: `${state.settings.fontSize}px`,
               wordWrap: 'break-word',
               overflow: 'hidden',
+              textOverflow: state.settings.cardDisplayMode === 'single' ? 'ellipsis' : undefined,
             }}
           >
-            {state.settings.renderMode === 'markdown' ? (
-              <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
-            ) : card.hasChanges ? (
-              <DiffViewer original={card.originalContent} current={card.content} />
-            ) : (
-              card.content
-            )}
+            {state.settings.cardDisplayMode === 'single'
+              ? summaryLine
+              : state.settings.renderMode === 'markdown'
+                ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
+                : card.hasChanges
+                  ? <DiffViewer original={card.originalContent} current={card.content} />
+                  : card.content}
           </div>
-          
-          {card.hasChanges && (
+
+          {state.settings.cardDisplayMode !== 'single' && card.hasChanges && (
             <div style={{
               marginTop: '12px',
               padding: '8px',
@@ -892,39 +917,41 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
             </div>
           )}
 
-          {renderAttributeSpecificContent()}
+          {state.settings.cardDisplayMode !== 'single' && renderAttributeSpecificContent()}
         </div>
       )}
 
-      <div style={{
-        fontSize: '11px',
-        color: '#999',
-        marginTop: '8px',
-      }}>
+      {state.settings.cardDisplayMode !== 'single' && (
         <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '8px',
-          marginBottom: card.statusUpdatedAt ? '4px' : '0',
+          fontSize: '11px',
+          color: '#999',
+          marginTop: '8px',
         }}>
-          <span>作成: {card.createdAt.toLocaleString()}</span>
-          {card.updatedAt.getTime() !== card.createdAt.getTime() && (
-            <span style={{ color: '#0066cc', fontWeight: 'bold' }}>
-              更新: {card.updatedAt.toLocaleString()}
-            </span>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '8px',
+            marginBottom: card.statusUpdatedAt ? '4px' : '0',
+          }}>
+            <span>作成: {card.createdAt.toLocaleString()}</span>
+            {card.updatedAt.getTime() !== card.createdAt.getTime() && (
+              <span style={{ color: '#0066cc', fontWeight: 'bold' }}>
+                更新: {card.updatedAt.toLocaleString()}
+              </span>
+            )}
+          </div>
+          {card.statusUpdatedAt && (
+            <div style={{
+              fontSize: '10px',
+              color: '#28a745',
+              fontWeight: 'bold',
+            }}>
+              状態更新: {card.statusUpdatedAt.toLocaleString()}
+            </div>
           )}
         </div>
-        {card.statusUpdatedAt && (
-          <div style={{
-            fontSize: '10px',
-            color: '#28a745',
-            fontWeight: 'bold',
-          }}>
-            状態更新: {card.statusUpdatedAt.toLocaleString()}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

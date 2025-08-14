@@ -63,6 +63,10 @@ export function Toolbar() {
     actions.updateSettings({ renderMode: mode });
   }, [actions]);
 
+  const handleCardDisplayModeChange = useCallback((mode: 'full' | 'single') => {
+    actions.updateSettings({ cardDisplayMode: mode });
+  }, [actions]);
+
   const cardCounts = {
     total: state.cards.length,
     unprocessed: state.cards.filter(c => c.status === CardStatus.UNPROCESSED).length,
@@ -297,6 +301,23 @@ export function Toolbar() {
               >
                 <option value="text">テキスト</option>
                 <option value="markdown">Markdown</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+              カード表示:
+              <select
+                value={state.settings.cardDisplayMode}
+                onChange={(e) => handleCardDisplayModeChange(e.target.value as 'full' | 'single')}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              >
+                <option value="full">通常</option>
+                <option value="single">1行</option>
               </select>
             </label>
 
