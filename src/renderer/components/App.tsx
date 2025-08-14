@@ -17,7 +17,7 @@ function AppContent() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const toolbarHeight = state.currentFile ? 100 : 50; // ファイルがある場合は2段構成
+  const toolbarHeight = state.currentFile ? 150 : 50; // ファイルがある場合は3段構成（ファイル操作、パス情報、フィルター＋設定）
   const cardListHeight = windowHeight - toolbarHeight - statusLogHeight;
 
   const handleMouseDown = (e: React.MouseEvent) => {

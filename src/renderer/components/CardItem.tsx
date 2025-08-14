@@ -27,6 +27,42 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
   const [editContent, setEditContent] = useState(card.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      
+      // 現在の高さ設定をクリア
+      textarea.style.height = '0px';
+      textarea.style.overflowY = 'hidden';
+      
+      // 正確なscrollHeightを取得するために少し待つ
+      requestAnimationFrame(() => {
+        const scrollHeight = textarea.scrollHeight;
+        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || state.settings.fontSize * 1.5;
+        const minLines = 3;
+        const minHeight = Math.max(60, lineHeight * minLines);
+        
+        // パディングとボーダーを考慮
+        const computedStyle = getComputedStyle(textarea);
+        const paddingTop = parseInt(computedStyle.paddingTop) || 0;
+        const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
+        const borderTop = parseInt(computedStyle.borderTopWidth) || 0;
+        const borderBottom = parseInt(computedStyle.borderBottomWidth) || 0;
+        const totalPadding = paddingTop + paddingBottom + borderTop + borderBottom;
+        
+        const newHeight = Math.max(minHeight, scrollHeight + totalPadding);
+        textarea.style.height = `${newHeight}px`;
+        
+        // 内容が多い場合のみスクロールを有効化
+        if (scrollHeight > newHeight - totalPadding) {
+          textarea.style.overflowY = 'auto';
+        } else {
+          textarea.style.overflowY = 'hidden';
+        }
+      });
+    }
+  }, [state.settings.fontSize]);
+
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
@@ -42,16 +78,13 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
     }
   }, [editContent, isEditing]);
 
-  const adjustTextareaHeight = useCallback(() => {
-    if (textareaRef.current) {
-      const textarea = textareaRef.current;
-      // 高さをリセットして正確な scrollHeight を取得
-      textarea.style.height = 'auto';
-      // コンテンツに合わせて高さを設定（最小60px）
-      const newHeight = Math.max(60, textarea.scrollHeight);
-      textarea.style.height = `${newHeight}px`;
+  // フォントサイズ変更時にも高さを調整
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      const timer = setTimeout(() => adjustTextareaHeight(), 10);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [state.settings.fontSize, state.settings.fontFamily, isEditing]);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -92,11 +125,12 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
         border: isSelected ? '2px solid #0066cc' : '1px solid #ddd',
         borderRadius: '8px',
         padding: '12px',
-        margin: '8px 0',
+        marginBottom: '12px',
         backgroundColor: STATUS_COLORS[card.status],
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         position: 'relative',
+        boxSizing: 'border-box',
       }}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -161,19 +195,27 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
             onChange={(e) => {
               setEditContent(e.target.value);
               // 入力時にリアルタイムで高さ調整
-              setTimeout(() => adjustTextareaHeight(), 0);
+              requestAnimationFrame(() => adjustTextareaHeight());
             }}
             onKeyDown={handleKeyDown}
+            onInput={() => {
+              // onInputイベントでも高さ調整
+              requestAnimationFrame(() => adjustTextareaHeight());
+            }}
             style={{
               width: '100%',
               minHeight: '60px',
+              maxHeight: '400px',
               padding: '8px',
               border: '1px solid #ccc',
               borderRadius: '4px',
               resize: 'vertical',
               fontFamily: state.settings.fontFamily,
               fontSize: `${state.settings.fontSize}px`,
+              lineHeight: '1.5',
               overflow: 'hidden',
+              boxSizing: 'border-box',
+              wordWrap: 'break-word',
             }}
           />
           <div style={{
