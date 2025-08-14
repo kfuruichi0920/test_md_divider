@@ -100,7 +100,7 @@ export function Toolbar() {
             fontSize: '14px',
           }}
         >
-          📄 TXTファイルを開く
+          📄 TXT開く
         </button>
 
         <button
@@ -116,7 +116,7 @@ export function Toolbar() {
             fontSize: '14px',
           }}
         >
-          📂 JSONファイルを開く
+          📂 JSON開く
         </button>
 
         {state.currentFile && (
@@ -134,7 +134,7 @@ export function Toolbar() {
                 fontSize: '14px',
               }}
             >
-              💾 JSONファイルを保存
+              💾 JSON保存
             </button>
 
             <button
@@ -150,7 +150,7 @@ export function Toolbar() {
                 fontSize: '14px',
               }}
             >
-              📝 上書き保存
+              📝 JSON上書保存
             </button>
           </>
         )}
@@ -232,7 +232,7 @@ export function Toolbar() {
           backgroundColor: '#ffffff',
         }}>
           <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
-            🔍 フィルター:
+            🔍:
           </span>
 
           <select
@@ -275,7 +275,7 @@ export function Toolbar() {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '14px',
+                fontSize: '12px',
               }}
             >
               ✕ クリア
@@ -284,11 +284,11 @@ export function Toolbar() {
 
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
-              ⚙️ 設定:
+              ⚙️:
             </span>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
-              表示:
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+              
               <select
                 value={state.settings.renderMode}
                 onChange={(e) => handleRenderModeChange(e.target.value as 'text' | 'markdown')}
@@ -296,16 +296,16 @@ export function Toolbar() {
                   padding: '4px 8px',
                   border: '1px solid #ccc',
                   borderRadius: '4px',
-                  fontSize: '14px',
+                  fontSize: '12px',
                 }}
               >
-                <option value="text">テキスト</option>
+                <option value="text">text</option>
                 <option value="markdown">Markdown</option>
               </select>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
-              カード表示:
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+              
               <button
                 onClick={() => handleCardDisplayModeChange(state.settings.cardDisplayMode === 'single' ? 'full' : 'single')}
                 style={{
@@ -314,14 +314,14 @@ export function Toolbar() {
                   borderRadius: '4px',
                   backgroundColor: '#f8f9fa',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '12px',
                 }}
               >
                 {state.settings.cardDisplayMode === 'single' ? '通常' : '1行'}
               </button>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
               フォント:
               <select
                 value={state.settings.fontFamily}
@@ -330,7 +330,7 @@ export function Toolbar() {
                   padding: '4px 8px',
                   border: '1px solid #ccc',
                   borderRadius: '4px',
-                  fontSize: '14px',
+                  fontSize: '12px',
                 }}
               >
                 <option value="system-ui, -apple-system, sans-serif">システム</option>
@@ -350,8 +350,8 @@ export function Toolbar() {
               </select>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
-              サイズ:
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+              
               <select
                 value={state.settings.fontSize}
                 onChange={(e) => handleFontSizeChange(Number(e.target.value))}
@@ -359,7 +359,7 @@ export function Toolbar() {
                   padding: '4px 8px',
                   border: '1px solid #ccc',
                   borderRadius: '4px',
-                  fontSize: '14px',
+                  fontSize: '12px',
                 }}
               >
                 <option value="12">12px</option>
