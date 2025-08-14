@@ -31,8 +31,27 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
       textareaRef.current.select();
+      // テキストエリアの高さを内容に合わせて調整
+      adjustTextareaHeight();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      adjustTextareaHeight();
+    }
+  }, [editContent, isEditing]);
+
+  const adjustTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      // 高さをリセットして正確な scrollHeight を取得
+      textarea.style.height = 'auto';
+      // コンテンツに合わせて高さを設定（最小60px）
+      const newHeight = Math.max(60, textarea.scrollHeight);
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
 
   const handleDoubleClick = useCallback(() => {
     setIsEditing(true);
@@ -139,7 +158,11 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
           <textarea
             ref={textareaRef}
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
+            onChange={(e) => {
+              setEditContent(e.target.value);
+              // 入力時にリアルタイムで高さ調整
+              setTimeout(() => adjustTextareaHeight(), 0);
+            }}
             onKeyDown={handleKeyDown}
             style={{
               width: '100%',
@@ -150,6 +173,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
               resize: 'vertical',
               fontFamily: state.settings.fontFamily,
               fontSize: `${state.settings.fontSize}px`,
+              overflow: 'hidden',
             }}
           />
           <div style={{
@@ -205,6 +229,8 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
             lineHeight: '1.5',
             fontFamily: state.settings.fontFamily,
             fontSize: `${state.settings.fontSize}px`,
+            wordWrap: 'break-word',
+            overflow: 'hidden',
           }}>
             {card.content}
           </div>
@@ -232,6 +258,8 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
                 fontFamily: state.settings.fontFamily,
                 fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
                 color: '#6c757d',
+                wordWrap: 'break-word',
+                overflow: 'hidden',
               }}>
                 {card.originalContent}
               </div>
