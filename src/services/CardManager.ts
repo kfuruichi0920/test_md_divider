@@ -92,7 +92,9 @@ export class CardManager {
 
     // コンテンツが変更された場合、hasChangesフラグを更新
     if (updates.content !== undefined) {
-      updatedCard.hasChanges = updates.content !== card.originalContent;
+      const newContent = updates.content.trim();
+      updatedCard.content = newContent;
+      updatedCard.hasChanges = newContent !== card.originalContent;
     }
 
     // 状態が変更された場合、statusUpdatedAtを設定

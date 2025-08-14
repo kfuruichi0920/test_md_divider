@@ -63,7 +63,7 @@ const initialState: AppState = {
   logs: [],
   settings: {
     fontFamily: 'system-ui, -apple-system, sans-serif',
-    fontSize: 14,
+    fontSize: 12,
   },
 };
 
