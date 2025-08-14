@@ -128,7 +128,7 @@ export function CardList({ cards, height }: CardListProps) {
     });
     
     // 最小行数を保証
-    totalLines = Math.max(3, totalLines);
+    totalLines = Math.max(3, totalLines+2 );
     
     // コンテンツ高さを計算
     const contentHeight = totalLines * lineHeight;
@@ -149,7 +149,7 @@ export function CardList({ cards, height }: CardListProps) {
       });
       
       // 初期内容のヘッダー（20px）+ コンテンツ + パディング
-      originalContentHeight = 20 + (originalTotalLines * (fontSize - 1) * 1.4) + 16;
+      originalContentHeight = 20 + (originalTotalLines * fontSize * 1.8) + 16;
     }
     
     // 総高さを計算

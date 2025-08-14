@@ -50,7 +50,7 @@ interface CardItemProps {
 }
 
 const STATUS_COLORS = {
-  [CardStatus.UNPROCESSED]: '#f0f0f0',
+  [CardStatus.UNPROCESSED]: '#ecfcfaff',
   [CardStatus.PROCESSING]: '#fff3cd',
   [CardStatus.PROCESSED]: '#d4edda',
 };
