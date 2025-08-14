@@ -42,7 +42,7 @@ const DiffViewer = ({
 interface CardItemProps {
   card: Card;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, index: number, options: { ctrlKey: boolean; shiftKey: boolean }) => void;
   onUpdate: (id: string, updates: CardUpdatePayload) => void;
   onUpdateAttribute?: (id: string, displayAttribute: DisplayAttribute, semanticAttribute: SemanticAttribute) => void;
   onMoveCard?: (cardId: string, direction: 'up' | 'down') => void;
@@ -101,6 +101,18 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     e.stopPropagation();
     actions.toggleCollapse(card.id);
   }, [actions, card.id]);
+
+  const handleToggleDisplayMode = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!onToggleCardDisplayMode) return;
+      const ids = state.selectedCardIds.includes(card.id) && state.selectedCardIds.length > 1
+        ? state.selectedCardIds
+        : [card.id];
+      ids.forEach(id => onToggleCardDisplayMode(id));
+    },
+    [onToggleCardDisplayMode, state.selectedCardIds, card.id]
+  );
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -186,25 +198,52 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     }
   }, [handleSave, handleCancel]);
 
-  const handleStatusChange = useCallback((status: CardStatus) => {
-    onUpdate(card.id, { status });
-  }, [card.id, onUpdate]);
+  const handleStatusChange = useCallback(
+    (status: CardStatus) => {
+      const ids = state.selectedCardIds.includes(card.id) && state.selectedCardIds.length > 1
+        ? state.selectedCardIds
+        : [card.id];
+      ids.forEach(id => onUpdate(id, { status }));
+    },
+    [card.id, onUpdate, state.selectedCardIds]
+  );
 
-  const handleDisplayAttributeChange = useCallback((displayAttribute: DisplayAttribute) => {
-    if (onUpdateAttribute && state.cardManager) {
-      const allowedSemanticAttributes = state.cardManager.getAllowedSemanticAttributes(displayAttribute);
-      const currentSemantic = allowedSemanticAttributes.includes(card.semanticAttribute) 
-        ? card.semanticAttribute 
-        : allowedSemanticAttributes[0];
-      onUpdateAttribute(card.id, displayAttribute, currentSemantic);
-    }
-  }, [card.id, card.semanticAttribute, onUpdateAttribute, state.cardManager]);
+  const handleDisplayAttributeChange = useCallback(
+    (displayAttribute: DisplayAttribute) => {
+      if (onUpdateAttribute && state.cardManager) {
+        const targetIds = state.selectedCardIds.includes(card.id) && state.selectedCardIds.length > 1
+          ? state.selectedCardIds
+          : [card.id];
+        targetIds.forEach(id => {
+          const targetCard = state.cardManager.getCard(id);
+          if (!targetCard) return;
+          const allowedSemanticAttributes = state.cardManager.getAllowedSemanticAttributes(displayAttribute);
+          const currentSemantic = allowedSemanticAttributes.includes(targetCard.semanticAttribute)
+            ? targetCard.semanticAttribute
+            : allowedSemanticAttributes[0];
+          onUpdateAttribute(id, displayAttribute, currentSemantic);
+        });
+      }
+    },
+    [card.id, onUpdateAttribute, state.cardManager, state.selectedCardIds]
+  );
 
-  const handleSemanticAttributeChange = useCallback((semanticAttribute: SemanticAttribute) => {
-    if (onUpdateAttribute) {
-      onUpdateAttribute(card.id, card.displayAttribute, semanticAttribute);
-    }
-  }, [card.id, card.displayAttribute, onUpdateAttribute]);
+  const handleSemanticAttributeChange = useCallback(
+    (semanticAttribute: SemanticAttribute) => {
+      if (onUpdateAttribute && state.cardManager) {
+        const targetIds = state.selectedCardIds.includes(card.id) && state.selectedCardIds.length > 1
+          ? state.selectedCardIds
+          : [card.id];
+        targetIds.forEach(id => {
+          const targetCard = state.cardManager.getCard(id);
+          if (targetCard && targetCard.displayAttribute === DisplayAttribute.MAIN_CONTENT) {
+            onUpdateAttribute(id, targetCard.displayAttribute, semanticAttribute);
+          }
+        });
+      }
+    },
+    [card.id, onUpdateAttribute, state.cardManager, state.selectedCardIds]
+  );
 
   const handleIndent = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -220,9 +259,12 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
     }
   }, [card.id, onOutdentCard]);
 
-  const handleClick = useCallback(() => {
-    onSelect(card.id);
-  }, [card.id, onSelect]);
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      onSelect(card.id, index, { ctrlKey: e.ctrlKey || e.metaKey, shiftKey: e.shiftKey });
+    },
+    [card.id, index, onSelect]
+  );
 
   const handleMoveUp = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -717,7 +759,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         }}>
           {onToggleCardDisplayMode && (
             <button
-              onClick={(e) => { e.stopPropagation(); onToggleCardDisplayMode(card.id); }}
+              onClick={handleToggleDisplayMode}
               style={{
                 padding: '2px 6px',
                 border: '1px solid #ccc',

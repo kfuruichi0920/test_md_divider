@@ -15,8 +15,8 @@ interface CardRowProps {
   style: React.CSSProperties;
   data: {
     cards: Card[];
-    selectedCardId: string | null;
-    onSelect: (id: string) => void;
+    selectedCardIds: string[];
+    onSelect: (id: string, index: number, options: { ctrlKey: boolean; shiftKey: boolean }) => void;
     onUpdate: (id: string, updates: CardUpdatePayload) => void;
     onUpdateAttribute: (id: string, displayAttribute: any, semanticAttribute: any) => void;
     onMoveCard: (cardId: string, direction: 'up' | 'down') => void;
@@ -31,7 +31,7 @@ interface CardRowProps {
 }
 
 function CardRow({ index, style, data }: CardRowProps) {
-  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize, onToggleCardDisplayMode } = data;
+  const { cards, selectedCardIds, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize, onToggleCardDisplayMode } = data;
   const card = cards[index];
   const rowRef = React.useRef<HTMLDivElement>(null);
 
@@ -68,7 +68,7 @@ function CardRow({ index, style, data }: CardRowProps) {
         <CardItem
           card={card}
           index={index}
-          isSelected={selectedCardId === card.id}
+          isSelected={selectedCardIds.includes(card.id)}
           onSelect={onSelect}
           onUpdate={(id, updates) => {
             onUpdate(id, updates);
@@ -298,7 +298,7 @@ export function CardList({ cards, height }: CardListProps) {
 
   const itemData = {
     cards,
-    selectedCardId: state.selectedCardId,
+    selectedCardIds: state.selectedCardIds,
     onSelect: actions.selectCard,
     onUpdate: actions.updateCard,
     onUpdateAttribute: actions.updateCardAttribute,
