@@ -323,13 +323,33 @@ export class CardManager {
 
   // 階層管理メソッド
 
+  // 親IDごとの子カード一覧を作成
+  private buildChildrenMap(): Map<string, Card[]> {
+    const map = new Map<string, Card[]>();
+    try {
+      this.cards.forEach(card => {
+        const key = card.parentId || '';
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key)!.push(card);
+      });
+
+      map.forEach(children => {
+        children.sort((a, b) => a.displayOrder - b.displayOrder);
+      });
+    } catch (error) {
+      console.error('Error in buildChildrenMap:', error);
+    }
+    return map;
+  }
+
   // 子カードを取得
   getChildCards(parentId: string): Card[] {
     try {
       if (!parentId) return [];
-      return Array.from(this.cards.values())
-        .filter(card => card && card.parentId === parentId)
-        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const map = this.buildChildrenMap();
+      return map.get(parentId) || [];
     } catch (error) {
       console.error('Error in getChildCards:', parentId, error);
       return [];
@@ -340,15 +360,18 @@ export class CardManager {
   getDescendantCards(parentId: string): Card[] {
     try {
       if (!parentId) return [];
-      const children = this.getChildCards(parentId);
-      const descendants: Card[] = [...children];
-      
-      children.forEach(child => {
-        if (child && child.id) {
-          descendants.push(...this.getDescendantCards(child.id));
+      const childrenMap = this.buildChildrenMap();
+      const descendants: Card[] = [];
+
+      const traverse = (id: string) => {
+        const children = childrenMap.get(id) || [];
+        for (const child of children) {
+          descendants.push(child);
+          traverse(child.id);
         }
-      });
-      
+      };
+
+      traverse(parentId);
       return descendants;
     } catch (error) {
       console.error('Error in getDescendantCards:', parentId, error);
@@ -618,10 +641,11 @@ export class CardManager {
     try {
       const card = this.cards.get(cardId);
       if (!card || !this.validateCardData(card)) return [];
-      
-      return Array.from(this.cards.values())
-        .filter(c => this.validateCardData(c) && c.id !== cardId && c.parentId === card.parentId && c.hierarchyLevel === card.hierarchyLevel)
-        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const map = this.buildChildrenMap();
+      const siblings = (map.get(card.parentId || '') || []).filter(
+        c => c.id !== cardId && c.hierarchyLevel === card.hierarchyLevel
+      );
+      return siblings;
     } catch (error) {
       console.error('Error in getSiblingCards:', cardId, error);
       return [];
@@ -651,20 +675,26 @@ export class CardManager {
       }
 
       const parent = card.parentId ? this.cards.get(card.parentId) || null : null;
-      const children = this.getChildCards(cardId);
-      const descendants = this.getDescendantCards(cardId);
-      const siblings = this.getSiblingCards(cardId);
+      const childrenMap = this.buildChildrenMap();
+      const children = childrenMap.get(cardId) || [];
+      const descendants: Card[] = [];
+
+      const traverse = (id: string) => {
+        const childCards = childrenMap.get(id) || [];
+        for (const child of childCards) {
+          descendants.push(child);
+          traverse(child.id);
+        }
+      };
+      traverse(cardId);
+
+      const siblings = card.parentId
+        ? (childrenMap.get(card.parentId) || []).filter(c => c.id !== cardId)
+        : [];
       const isGroupRoot = children.length > 0;
       const groupSize = 1 + descendants.length; // 自分 + 全子孫
 
-      return {
-        parent,
-        children,
-        descendants,
-        siblings,
-        isGroupRoot,
-        groupSize,
-      };
+      return { parent, children, descendants, siblings, isGroupRoot, groupSize };
     } catch (error) {
       console.error('Error in getCardGroupInfo:', cardId, error);
       return {
