@@ -50,6 +50,7 @@ interface CardItemProps {
   onIndentCard?: (cardId: string) => void;
   onOutdentCard?: (cardId: string) => void;
   index: number;
+  onToggleCardDisplayMode?: (cardId: string) => void;
 }
 
 const STATUS_COLORS = {
@@ -86,7 +87,7 @@ const DISPLAY_ATTRIBUTE_COLORS = {
   [DisplayAttribute.MISCELLANEOUS]: '#f3e8ff', // 薄い紫（雑記）
 };
 
-export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index }: CardItemProps) {
+export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index, onToggleCardDisplayMode }: CardItemProps) {
   const { state, actions } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
@@ -95,6 +96,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
   const summaryLine = (card.contents || '').split('\n')[0];
   const hasChildren = state.cardManager.getChildCards(card.id).length > 0;
   const isCollapsed = state.collapsedCardIds.has(card.id);
+  const cardDisplayMode = state.cardDisplayModes[card.id] || state.settings.cardDisplayMode;
   const handleToggleCollapse = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     actions.toggleCollapse(card.id);
@@ -712,6 +714,22 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
           gap: '8px',
           alignItems: 'center',
         }}>
+          {onToggleCardDisplayMode && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleCardDisplayMode(card.id); }}
+              style={{
+                padding: '2px 6px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                backgroundColor: '#f8f9fa',
+                cursor: 'pointer',
+                fontSize: '11px',
+              }}
+              title="表示切替"
+            >
+              {cardDisplayMode === 'single' ? '通常' : '1行'}
+            </button>
+          )}
           {onUpdateAttribute && (
             <>
               <select
@@ -857,16 +875,16 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         <div>
           <div
             style={{
-              whiteSpace: state.settings.cardDisplayMode === 'single' ? 'nowrap' : 'pre-wrap',
+              whiteSpace: cardDisplayMode === 'single' ? 'nowrap' : 'pre-wrap',
               lineHeight: '1.5',
               fontFamily: state.settings.fontFamily,
               fontSize: `${state.settings.fontSize}px`,
               wordWrap: 'break-word',
               overflow: 'hidden',
-              textOverflow: state.settings.cardDisplayMode === 'single' ? 'ellipsis' : undefined,
+              textOverflow: cardDisplayMode === 'single' ? 'ellipsis' : undefined,
             }}
           >
-            {state.settings.cardDisplayMode === 'single'
+            {cardDisplayMode === 'single'
               ? summaryLine
               : state.settings.renderMode === 'markdown'
                 ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
@@ -875,7 +893,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
                   : card.content}
           </div>
 
-          {state.settings.cardDisplayMode !== 'single' && card.hasChanges && (
+          {cardDisplayMode !== 'single' && card.hasChanges && (
             <div style={{
               marginTop: '12px',
               padding: '8px',
@@ -917,11 +935,11 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
             </div>
           )}
 
-          {state.settings.cardDisplayMode !== 'single' && renderAttributeSpecificContent()}
+          {cardDisplayMode !== 'single' && renderAttributeSpecificContent()}
         </div>
       )}
 
-      {state.settings.cardDisplayMode !== 'single' && (
+      {cardDisplayMode !== 'single' && (
         <div style={{
           fontSize: '11px',
           color: '#999',

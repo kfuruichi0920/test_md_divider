@@ -306,19 +306,19 @@ export function Toolbar() {
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
               カード表示:
-              <select
-                value={state.settings.cardDisplayMode}
-                onChange={(e) => handleCardDisplayModeChange(e.target.value as 'full' | 'single')}
+              <button
+                onClick={() => handleCardDisplayModeChange(state.settings.cardDisplayMode === 'single' ? 'full' : 'single')}
                 style={{
                   padding: '4px 8px',
                   border: '1px solid #ccc',
                   borderRadius: '4px',
+                  backgroundColor: '#f8f9fa',
+                  cursor: 'pointer',
                   fontSize: '14px',
                 }}
               >
-                <option value="full">通常</option>
-                <option value="single">1行</option>
-              </select>
+                {state.settings.cardDisplayMode === 'single' ? '通常' : '1行'}
+              </button>
             </label>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>

@@ -26,11 +26,12 @@ interface CardRowProps {
     resetItemSize: (index: number) => void;
     resetAllItemSizes: () => void;
     updateItemSize: (index: number, height: number) => void;
+    onToggleCardDisplayMode: (cardId: string, index: number) => void;
   };
 }
 
 function CardRow({ index, style, data }: CardRowProps) {
-  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize } = data;
+  const { cards, selectedCardId, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, resetItemSize, resetAllItemSizes, updateItemSize, onToggleCardDisplayMode } = data;
   const card = cards[index];
   const rowRef = React.useRef<HTMLDivElement>(null);
 
@@ -99,6 +100,9 @@ function CardRow({ index, style, data }: CardRowProps) {
             // 階層変更時に全体サイズをリセット
             resetAllItemSizes();
           }}
+          onToggleCardDisplayMode={(cardId) => {
+            onToggleCardDisplayMode(cardId, index);
+          }}
         />
       </ErrorBoundary>
     </div>
@@ -116,7 +120,8 @@ export function CardList({ cards, height }: CardListProps) {
     const card = cards[index];
     if (!card) return 140;
 
-    if (state.settings.cardDisplayMode === 'single') {
+    const mode = state.cardDisplayModes[card.id] || state.settings.cardDisplayMode;
+    if (mode === 'single') {
       return 60;
     }
 
@@ -230,14 +235,15 @@ export function CardList({ cards, height }: CardListProps) {
     // キャッシュに保存
     itemSizes.current[index] = totalHeight;
     return totalHeight;
-  }, [cards, state.settings.fontSize, state.settings.cardDisplayMode]);
+  }, [cards, state.settings.fontSize, state.settings.cardDisplayMode, state.cardDisplayModes]);
 
   // サイズをリセットする関数
   const resetItemSize = useCallback((index: number) => {
     if (itemSizes.current[index]) {
       delete itemSizes.current[index];
       if (listRef.current) {
-        listRef.current.resetAfterIndex(index);
+        // Force react-window to recalculate sizes immediately
+        listRef.current.resetAfterIndex(index, true);
       }
     }
   }, []);
@@ -246,7 +252,8 @@ export function CardList({ cards, height }: CardListProps) {
   const resetAllItemSizes = useCallback(() => {
     itemSizes.current = [];
     if (listRef.current) {
-      listRef.current.resetAfterIndex(0);
+      // Force a full recompute so expanded cards reposition correctly
+      listRef.current.resetAfterIndex(0, true);
     }
   }, []);
 
@@ -255,7 +262,8 @@ export function CardList({ cards, height }: CardListProps) {
     if (itemSizes.current[index] !== actualHeight) {
       itemSizes.current[index] = actualHeight;
       if (listRef.current) {
-        listRef.current.resetAfterIndex(index);
+        // Update layout for the measured item immediately
+        listRef.current.resetAfterIndex(index, true);
       }
     }
   }, []);
@@ -301,6 +309,10 @@ export function CardList({ cards, height }: CardListProps) {
     resetItemSize,
     resetAllItemSizes,
     updateItemSize,
+    onToggleCardDisplayMode: (cardId: string, index: number) => {
+      actions.toggleCardDisplayMode(cardId);
+      resetItemSize(index);
+    },
   };
 
   return (
