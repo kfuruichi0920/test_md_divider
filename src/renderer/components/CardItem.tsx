@@ -93,14 +93,50 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
   const [editContent, setEditContent] = useState(card.content);
   const [isEditingAttribute, setIsEditingAttribute] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const summaryLine = (card.contents || '').split('\n')[0];
   const hasChildren = state.cardManager.getChildCards(card.id).length > 0;
   const isCollapsed = state.collapsedCardIds.has(card.id);
+  const isCollapsing = state.collapsingCardIds.has(card.id);
+  const isExpanding = state.expandingCardIds.has(card.id);
   const cardDisplayMode = state.cardDisplayModes[card.id] || state.settings.cardDisplayMode;
   const handleToggleCollapse = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     actions.toggleCollapse(card.id);
   }, [actions, card.id]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (isCollapsing) {
+      const height = el.offsetHeight;
+      el.style.height = `${height}px`;
+      el.style.overflow = 'hidden';
+      el.style.transition = 'height 0.3s ease, opacity 0.3s ease';
+      requestAnimationFrame(() => {
+        el.style.height = '0px';
+        el.style.opacity = '0';
+      });
+    } else if (isExpanding) {
+      el.style.height = '0px';
+      el.style.opacity = '0';
+      el.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        const height = el.scrollHeight;
+        el.style.transition = 'height 0.3s ease, opacity 0.3s ease';
+        el.style.height = `${height}px`;
+        el.style.opacity = '1';
+      });
+      const timer = setTimeout(() => {
+        if (el) {
+          el.style.height = '';
+          el.style.transition = '';
+          el.style.overflow = '';
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isCollapsing, isExpanding]);
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -509,6 +545,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
 
   return (
     <div
+      ref={containerRef}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       style={{
