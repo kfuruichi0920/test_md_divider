@@ -14,12 +14,15 @@ export interface Card {
   originalContent: string;
   hasChanges: boolean;
   statusUpdatedAt?: Date;
+  originalPosition: number;
+  displayOrder: number;
 }
 
 export interface CardUpdatePayload {
   content?: string;
   status?: CardStatus;
   position?: number;
+  displayOrder?: number;
 }
 
 export type CardFilter = {
@@ -27,7 +30,7 @@ export type CardFilter = {
   searchText?: string;
 };
 
-export type CardSortOrder = 'position' | 'createdAt' | 'updatedAt';
+export type CardSortOrder = 'position' | 'displayOrder' | 'createdAt' | 'updatedAt';
 
 export interface CardListOptions {
   filter?: CardFilter;

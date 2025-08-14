@@ -29,6 +29,8 @@ export class CardManager {
       originalContent: trimmedContent,
       hasChanges: false,
       statusUpdatedAt: undefined,
+      originalPosition: position,
+      displayOrder: position,
     };
 
     this.cards.set(card.id, card);
@@ -48,6 +50,8 @@ export class CardManager {
       originalContent: cardData.originalContent.trim(),
       hasChanges: cardData.content.trim() !== cardData.originalContent.trim(),
       statusUpdatedAt: cardData.statusUpdatedAt,
+      originalPosition: cardData.originalPosition !== undefined ? cardData.originalPosition : cardData.position,
+      displayOrder: cardData.displayOrder !== undefined ? cardData.displayOrder : cardData.position,
     };
 
     this.cards.set(card.id, card);
@@ -157,6 +161,9 @@ export class CardManager {
         case 'position':
           comparison = a.position - b.position;
           break;
+        case 'displayOrder':
+          comparison = a.displayOrder - b.displayOrder;
+          break;
         case 'createdAt':
           comparison = a.createdAt.getTime() - b.createdAt.getTime();
           break;
@@ -169,6 +176,80 @@ export class CardManager {
 
       return direction === 'desc' ? -comparison : comparison;
     });
+  }
+
+  moveCard(cardId: string, direction: 'up' | 'down'): boolean {
+    const card = this.cards.get(cardId);
+    if (!card) return false;
+
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const currentIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (currentIndex === -1) return false;
+    
+    let targetIndex: number;
+    if (direction === 'up' && currentIndex > 0) {
+      targetIndex = currentIndex - 1;
+    } else if (direction === 'down' && currentIndex < allCards.length - 1) {
+      targetIndex = currentIndex + 1;
+    } else {
+      return false; // 移動できない
+    }
+
+    // カードの位置を入れ替え
+    const movedCard = allCards[currentIndex];
+    const targetCard = allCards[targetIndex];
+    
+    // 配列内で位置を交換
+    allCards[currentIndex] = targetCard;
+    allCards[targetIndex] = movedCard;
+    
+    // 全カードのdisplayOrderを再計算
+    this.recalculateDisplayOrder(allCards);
+    
+    return true;
+  }
+
+  moveCardToPosition(cardId: string, targetIndex: number): boolean {
+    const allCards = this.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' });
+    const currentIndex = allCards.findIndex(c => c.id === cardId);
+    
+    if (currentIndex === -1 || targetIndex < 0 || targetIndex >= allCards.length) {
+      return false;
+    }
+    
+    if (currentIndex === targetIndex) {
+      return true; // 同じ位置なので何もしない
+    }
+    
+    // 配列から要素を削除し、新しい位置に挿入
+    const movedCard = allCards.splice(currentIndex, 1)[0];
+    allCards.splice(targetIndex, 0, movedCard);
+    
+    // 全カードのdisplayOrderを再計算
+    this.recalculateDisplayOrder(allCards);
+    
+    return true;
+  }
+
+  // 全カードのdisplayOrderを再計算
+  private recalculateDisplayOrder(cards: Card[]): void {
+    const now = new Date();
+    cards.forEach((card, index) => {
+      const updatedCard = { ...card, displayOrder: index, updatedAt: now };
+      this.cards.set(card.id, updatedCard);
+    });
+    this.notifyListeners();
+  }
+
+  // 表示順序番号を生成
+  getDisplayOrderNumber(card: Card): string {
+    // 元の位置と現在の位置が異なる場合は変更マークを追加
+    if (card.displayOrder !== card.originalPosition) {
+      return `${card.displayOrder + 1} (元: ${card.originalPosition + 1})`;
+    } else {
+      return (card.displayOrder + 1).toString();
+    }
   }
 
   private generateId(): string {

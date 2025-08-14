@@ -11,6 +11,16 @@ export function FileDropZone({ children }: FileDropZoneProps) {
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    
+    // カードのドラッグかどうかをチェック
+    const isCardDrag = e.dataTransfer.types.includes('text/plain') && 
+                      e.dataTransfer.types.includes('card/index');
+    
+    // カードのドラッグの場合はファイルドロップゾーンを無効化
+    if (isCardDrag) {
+      return;
+    }
+    
     setIsDragOver(true);
   }, []);
 
@@ -22,6 +32,15 @@ export function FileDropZone({ children }: FileDropZoneProps) {
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+
+    // カードのドラッグかどうかをチェック
+    const isCardDrag = e.dataTransfer.types.includes('text/plain') && 
+                      e.dataTransfer.types.includes('card/index');
+    
+    // カードのドラッグの場合は処理しない
+    if (isCardDrag) {
+      return;
+    }
 
     const files = Array.from(e.dataTransfer.files);
     

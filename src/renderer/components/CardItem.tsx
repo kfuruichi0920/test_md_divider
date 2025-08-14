@@ -7,6 +7,9 @@ interface CardItemProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onUpdate: (id: string, updates: { content?: string; status?: CardStatus }) => void;
+  onMoveCard?: (cardId: string, direction: 'up' | 'down') => void;
+  onMoveCardToPosition?: (cardId: string, targetIndex: number) => void;
+  index: number;
 }
 
 const STATUS_COLORS = {
@@ -21,7 +24,7 @@ const STATUS_LABELS = {
   [CardStatus.PROCESSED]: '処理済み',
 };
 
-export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps) {
+export function CardItem({ card, isSelected, onSelect, onUpdate, onMoveCard, onMoveCardToPosition, index }: CardItemProps) {
   const { state } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
@@ -119,8 +122,62 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
     onSelect(card.id);
   }, [card.id, onSelect]);
 
+  const handleMoveUp = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onMoveCard) {
+      onMoveCard(card.id, 'up');
+    }
+  }, [card.id, onMoveCard]);
+
+  const handleMoveDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onMoveCard) {
+      onMoveCard(card.id, 'down');
+    }
+  }, [card.id, onMoveCard]);
+
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.dataTransfer.setData('text/plain', card.id);
+    e.dataTransfer.setData('card/index', index.toString());
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // ドラッグ中のカードを少し透明にする
+    if (e.target instanceof HTMLElement) {
+      e.target.style.cursor = 'grabbing';
+      setTimeout(() => {
+        if (e.target instanceof HTMLElement) {
+          e.target.style.opacity = '0.5';
+        }
+      }, 0);
+    }
+  }, [card.id, index]);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    // ドラッグ終了時に元の状態に戻す
+    if (e.target instanceof HTMLElement) {
+      e.target.style.cursor = 'grab';
+      e.target.style.opacity = '1';
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const draggedCardId = e.dataTransfer.getData('text/plain');
+    const draggedIndex = parseInt(e.dataTransfer.getData('card/index'), 10);
+    
+    if (draggedCardId !== card.id && onMoveCardToPosition && !isNaN(draggedIndex)) {
+      onMoveCardToPosition(draggedCardId, index);
+    }
+  }, [card.id, index, onMoveCardToPosition]);
+
   return (
     <div
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       style={{
         border: isSelected ? '2px solid #0066cc' : '1px solid #ddd',
         borderRadius: '8px',
@@ -146,12 +203,26 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
           alignItems: 'center',
           gap: '6px',
         }}>
-          <div style={{
-            fontSize: '12px',
-            color: '#666',
-            fontWeight: 'bold',
-          }}>
-            #{card.position + 1}
+          <div 
+            draggable
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            style={{
+              fontSize: '12px',
+              color: '#666',
+              fontWeight: 'bold',
+              cursor: 'grab',
+              padding: '4px',
+              borderRadius: '4px',
+              border: '1px solid #ddd',
+              backgroundColor: '#f8f9fa',
+              userSelect: 'none',
+            }}
+            title="ドラッグして順序を変更"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            #{state.cardManager.getDisplayOrderNumber(card)}
           </div>
           {card.hasChanges && (
             <span style={{
@@ -165,6 +236,54 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
             }}>
               変更済み
             </span>
+          )}
+          {onMoveCard && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1px',
+            }}>
+              <button
+                onClick={handleMoveUp}
+                style={{
+                  width: '18px',
+                  height: '14px',
+                  padding: '0',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #ccc',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#666',
+                }}
+                title="上に移動"
+              >
+                ▲
+              </button>
+              <button
+                onClick={handleMoveDown}
+                style={{
+                  width: '18px',
+                  height: '14px',
+                  padding: '0',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #ccc',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#666',
+                }}
+                title="下に移動"
+              >
+                ▼
+              </button>
+            </div>
           )}
         </div>
         

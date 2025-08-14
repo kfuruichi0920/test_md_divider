@@ -34,7 +34,7 @@ type AppAction =
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> };
 
 interface AppContextType {
-  state: AppState;
+  state: AppState & { cardManager: CardManager };
   actions: {
     loadFile: (filePath: string) => Promise<void>;
     loadJsonFile: (filePath: string) => Promise<void>;
@@ -46,6 +46,8 @@ interface AppContextType {
     addLog: (level: LogLevel, message: string, details?: string) => void;
     clearLogs: () => void;
     updateSettings: (settings: Partial<AppState['settings']>) => void;
+    moveCard: (cardId: string, direction: 'up' | 'down') => void;
+    moveCardToPosition: (cardId: string, targetIndex: number) => void;
   };
 }
 
@@ -119,7 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateCardsList = useCallback(() => {
     const cards = cardManager.getAllCards({
       filter: state.filter,
-      sortOrder: 'position',
+      sortOrder: 'displayOrder',
       sortDirection: 'asc',
     });
     dispatch({ type: 'SET_CARDS', payload: cards });
@@ -240,6 +242,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [addLog]);
 
+  const moveCard = useCallback((cardId: string, direction: 'up' | 'down') => {
+    const success = cardManager.moveCard(cardId, direction);
+    if (success) {
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        const directionText = direction === 'up' ? '上' : '下';
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を${directionText}に移動しました`);
+      }
+    }
+  }, [addLog]);
+
+  const moveCardToPosition = useCallback((cardId: string, targetIndex: number) => {
+    const success = cardManager.moveCardToPosition(cardId, targetIndex);
+    if (success) {
+      const card = cardManager.getCard(cardId);
+      if (card) {
+        addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を位置 ${targetIndex + 1} に移動しました`);
+      }
+    }
+  }, [addLog]);
+
   const loadJsonFile = useCallback(async (filePath: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
@@ -330,7 +353,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.currentFile, addLog]);
 
   const contextValue: AppContextType = {
-    state,
+    state: { ...state, cardManager },
     actions: {
       loadFile,
       loadJsonFile,
@@ -342,6 +365,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addLog,
       clearLogs,
       updateSettings,
+      moveCard,
+      moveCardToPosition,
     },
   };
 
