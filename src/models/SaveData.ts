@@ -5,6 +5,7 @@ export interface SaveData {
   originalFile: string;
   timestamp: string;
   cards: Card[];
+  collapsedCardIds: string[];
   metadata?: {
     totalCards: number;
     lastModified: string;
@@ -18,4 +19,4 @@ export interface SaveDataValidationResult {
   warnings: string[];
 }
 
-export const SAVE_DATA_VERSION = '1.4.0';
+export const SAVE_DATA_VERSION = '1.5.0';

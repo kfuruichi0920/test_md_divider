@@ -1,7 +1,7 @@
 import { Card, SaveData, SaveDataValidationResult, SAVE_DATA_VERSION } from '@/models';
 
 export class SaveDataManager {
-  static createSaveData(originalFile: string, cards: Card[]): SaveData {
+  static createSaveData(originalFile: string, cards: Card[], collapsedCardIds: string[]): SaveData {
     const now = new Date();
     return {
       version: SAVE_DATA_VERSION,
@@ -12,6 +12,7 @@ export class SaveDataManager {
         createdAt: card.createdAt,
         updatedAt: card.updatedAt,
       })),
+      collapsedCardIds,
       metadata: {
         totalCards: cards.length,
         lastModified: now.toISOString(),
@@ -126,6 +127,19 @@ export class SaveDataManager {
       });
     }
 
+    if (data.collapsedCardIds !== undefined) {
+      if (!Array.isArray(data.collapsedCardIds)) {
+        errors.push('collapsedCardIdsフィールドは配列である必要があります');
+      } else {
+        const invalidId = data.collapsedCardIds.find((id: any) => typeof id !== 'string');
+        if (invalidId !== undefined) {
+          errors.push('collapsedCardIdsフィールドの各要素は文字列である必要があります');
+        }
+      }
+    } else if (data.version === '1.5.0' || (data.version && data.version > '1.4.0')) {
+      warnings.push('collapsedCardIdsフィールドがありません（後方互換性のため警告のみ）');
+    }
+
     // バージョンチェック
     if (data.version !== SAVE_DATA_VERSION) {
       warnings.push(`バージョンが異なります。期待値: ${SAVE_DATA_VERSION}, 実際の値: ${data.version}`);
@@ -147,6 +161,7 @@ export class SaveDataManager {
         // Date オブジェクトに変換
         const saveData: SaveData = {
           ...data,
+          collapsedCardIds: Array.isArray(data.collapsedCardIds) ? data.collapsedCardIds : [],
           cards: data.cards.map((card: any) => ({
             ...card,
             createdAt: new Date(card.createdAt),

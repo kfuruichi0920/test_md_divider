@@ -42,7 +42,8 @@ type AppAction =
   | { type: 'CLEAR_LOGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> }
   | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } }
-  | { type: 'TOGGLE_COLLAPSE'; payload: string };
+  | { type: 'TOGGLE_COLLAPSE'; payload: string }
+  | { type: 'SET_COLLAPSED_CARD_IDS'; payload: Set<string> };
 
 interface AppContextType {
   state: AppState & { cardManager: CardManager };
@@ -136,6 +137,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       }
       return { ...state, collapsedCardIds: newSet };
     }
+    case 'SET_COLLAPSED_CARD_IDS':
+      return { ...state, collapsedCardIds: action.payload };
     default:
       return state;
   }
@@ -259,6 +262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     undoStack.current = [];
     redoStack.current = [];
     dispatch({ type: 'SET_HISTORY', payload: { undoCount: 0, redoCount: 0 } });
+    dispatch({ type: 'SET_COLLAPSED_CARD_IDS', payload: new Set() });
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
     addLog(LogLevel.INFO, `テキストファイルの読み込みを開始: ${filePath}`);
@@ -525,6 +529,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
       });
 
+      dispatch({ type: 'SET_COLLAPSED_CARD_IDS', payload: new Set(data.collapsedCardIds || []) });
+
       // カードリストを手動で更新
       updateCardsList();
 
@@ -549,7 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       addLog(LogLevel.INFO, 'JSONファイルの保存を開始...');
       const cards = cardManager.getAllCards({ sortOrder: 'position', sortDirection: 'asc' });
-      const saveData = SaveDataManager.createSaveData(state.currentFile, cards);
+      const saveData = SaveDataManager.createSaveData(state.currentFile, cards, Array.from(state.collapsedCardIds));
       const jsonContent = JSON.stringify(saveData, null, 2);
       const suggestedName = SaveDataManager.generateFilename(state.currentFile);
 
@@ -575,7 +581,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       addLog(LogLevel.INFO, 'JSONファイルの上書き保存を開始...');
       const cards = cardManager.getAllCards({ sortOrder: 'position', sortDirection: 'asc' });
-      const saveData = SaveDataManager.createSaveData(state.currentFile, cards);
+      const saveData = SaveDataManager.createSaveData(state.currentFile, cards, Array.from(state.collapsedCardIds));
       const jsonContent = JSON.stringify(saveData, null, 2);
 
       const result = await window.electronAPI.overwriteJson(jsonContent, state.currentJsonPath);

@@ -99,6 +99,10 @@ function CardRow({ index, style, data }: CardRowProps) {
             // 階層変更時に全体サイズをリセット
             resetAllItemSizes();
           }}
+          onToggleCollapse={() => {
+            // 折りたたみ状態変更時に全体サイズをリセット
+            resetAllItemSizes();
+          }}
         />
       </ErrorBoundary>
     </div>

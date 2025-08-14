@@ -50,6 +50,7 @@ interface CardItemProps {
   onIndentCard?: (cardId: string) => void;
   onOutdentCard?: (cardId: string) => void;
   index: number;
+  onToggleCollapse?: () => void;
 }
 
 const STATUS_COLORS = {
@@ -86,7 +87,7 @@ const DISPLAY_ATTRIBUTE_COLORS = {
   [DisplayAttribute.MISCELLANEOUS]: '#f3e8ff', // 薄い紫（雑記）
 };
 
-export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index }: CardItemProps) {
+export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribute, onMoveCard, onMoveCardToPosition, onIndentCard, onOutdentCard, index, onToggleCollapse }: CardItemProps) {
   const { state, actions } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
@@ -95,10 +96,14 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
   const summaryLine = (card.contents || '').split('\n')[0];
   const hasChildren = state.cardManager.getChildCards(card.id).length > 0;
   const isCollapsed = state.collapsedCardIds.has(card.id);
-  const handleToggleCollapse = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    actions.toggleCollapse(card.id);
-  }, [actions, card.id]);
+  const handleToggleCollapse = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      actions.toggleCollapse(card.id);
+      onToggleCollapse?.();
+    },
+    [actions, card.id, onToggleCollapse]
+  );
 
   const adjustTextareaHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -513,7 +518,7 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
         border: isSelected ? '2px solid #0066cc' : '1px solid #ddd',
         borderRadius: '8px',
         padding: '12px',
-        marginBottom: '12px',
+        marginBottom: isCollapsed ? '24px' : '12px',
         marginLeft: `${Math.min(hierarchyIndent, (maxVisibleLevel - 1) * 24)}px`,
         backgroundColor: DISPLAY_ATTRIBUTE_COLORS[card.displayAttribute],
         cursor: 'pointer',
@@ -529,33 +534,27 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '8px',
-      }}>
-        <div style={{
+      <div
+        style={{
           display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          gap: '6px',
-        }}>
+          marginBottom: isCollapsed ? 0 : '8px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+          }}
+          onClick={handleToggleCollapse}
+        >
           {hasChildren && (
-            <button
-              onClick={handleToggleCollapse}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{
-                border: '1px solid #ddd',
-                backgroundColor: '#f8f9fa',
-                cursor: 'pointer',
-                padding: '2px 4px',
-                borderRadius: '4px',
-                fontSize: '12px',
-              }}
-              title={isCollapsed ? '展開' : '折りたたみ'}
-            >
+            <span style={{ fontSize: '12px', userSelect: 'none' }}>
               {isCollapsed ? '▶' : '▼'}
-            </button>
+            </span>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <div
@@ -776,181 +775,185 @@ export function CardItem({ card, isSelected, onSelect, onUpdate, onUpdateAttribu
           </select>        </div>
       </div>
 
-      {isEditing ? (
-        <div>
-          <textarea
-            ref={textareaRef}
-            value={editContent}
-            onChange={(e) => {
-              setEditContent(e.target.value);
-              // 入力時にリアルタイムで高さ調整
-              requestAnimationFrame(() => adjustTextareaHeight());
-            }}
-            onKeyDown={handleKeyDown}
-            onInput={() => {
-              // onInputイベントでも高さ調整
-              requestAnimationFrame(() => adjustTextareaHeight());
-            }}
-            style={{
-              width: '100%',
-              minHeight: '60px',
-              maxHeight: '400px',
-              padding: '8px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              resize: 'vertical',
-              fontFamily: state.settings.fontFamily,
-              fontSize: `${state.settings.fontSize}px`,
-              lineHeight: '1.5',
-              overflow: 'hidden',
-              boxSizing: 'border-box',
-              wordWrap: 'break-word',
-            }}
-          />
-          <div style={{
-            marginTop: '8px',
-            display: 'flex',
-            gap: '8px',
-          }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSave();
-              }}
-              style={{
-                padding: '4px 12px',
-                backgroundColor: '#0066cc',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              保存
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCancel();
-              }}
-              style={{
-                padding: '4px 12px',
-                backgroundColor: '#666',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              キャンセル
-            </button>
-          </div>
-          <div style={{
-            fontSize: '11px',
-            color: '#666',
-            marginTop: '4px',
-          }}>
-            Ctrl+Enter: 保存 / Escape: キャンセル
-          </div>
-        </div>
-      ) : (
-        <div>
-          <div
-            style={{
-              whiteSpace: state.settings.cardDisplayMode === 'single' ? 'nowrap' : 'pre-wrap',
-              lineHeight: '1.5',
-              fontFamily: state.settings.fontFamily,
-              fontSize: `${state.settings.fontSize}px`,
-              wordWrap: 'break-word',
-              overflow: 'hidden',
-              textOverflow: state.settings.cardDisplayMode === 'single' ? 'ellipsis' : undefined,
-            }}
-          >
-            {state.settings.cardDisplayMode === 'single'
-              ? summaryLine
-              : state.settings.renderMode === 'markdown'
-                ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
-                : card.hasChanges
-                  ? <DiffViewer original={card.originalContent} current={card.content} />
-                  : card.content}
-          </div>
-
-          {state.settings.cardDisplayMode !== 'single' && card.hasChanges && (
-            <div style={{
-              marginTop: '12px',
-              padding: '8px',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
-              borderRadius: '4px',
-              borderLeft: '4px solid #6c757d',
-            }}>
+      {!isCollapsed && (
+        <>
+          {isEditing ? (
+            <div>
+              <textarea
+                ref={textareaRef}
+                value={editContent}
+                onChange={(e) => {
+                  setEditContent(e.target.value);
+                  // 入力時にリアルタイムで高さ調整
+                  requestAnimationFrame(() => adjustTextareaHeight());
+                }}
+                onKeyDown={handleKeyDown}
+                onInput={() => {
+                  // onInputイベントでも高さ調整
+                  requestAnimationFrame(() => adjustTextareaHeight());
+                }}
+                style={{
+                  width: '100%',
+                  minHeight: '60px',
+                  maxHeight: '400px',
+                  padding: '8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  resize: 'vertical',
+                  fontFamily: state.settings.fontFamily,
+                  fontSize: `${state.settings.fontSize}px`,
+                  lineHeight: '1.5',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box',
+                  wordWrap: 'break-word',
+                }}
+              />
               <div style={{
-                fontSize: '12px',
-                color: '#6c757d',
-                fontWeight: 'bold',
-                marginBottom: '4px',
+                marginTop: '8px',
+                display: 'flex',
+                gap: '8px',
               }}>
-                📝 初期内容:
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSave();
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  保存
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCancel();
+                  }}
+                  style={{
+                    padding: '4px 12px',
+                    backgroundColor: '#666',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  キャンセル
+                </button>
               </div>
+              <div style={{
+                fontSize: '11px',
+                color: '#666',
+                marginTop: '4px',
+              }}>
+                Ctrl+Enter: 保存 / Escape: キャンセル
+              </div>
+            </div>
+          ) : (
+            <div>
               <div
                 style={{
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1.4',
+                  whiteSpace: state.settings.cardDisplayMode === 'single' ? 'nowrap' : 'pre-wrap',
+                  lineHeight: '1.5',
                   fontFamily: state.settings.fontFamily,
-                  fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
-                  color: '#6c757d',
+                  fontSize: `${state.settings.fontSize}px`,
                   wordWrap: 'break-word',
                   overflow: 'hidden',
+                  textOverflow: state.settings.cardDisplayMode === 'single' ? 'ellipsis' : undefined,
                 }}
               >
-                {state.settings.renderMode === 'markdown' ? (
-                  <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.originalContent) }} />
-                ) : (
-                  <DiffViewer
-                    original={card.originalContent}
-                    current={card.content}
-                    showAdded={false}
-                    showRemoved={true}
-                  />
+                {state.settings.cardDisplayMode === 'single'
+                  ? summaryLine
+                  : state.settings.renderMode === 'markdown'
+                    ? <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.content) }} />
+                    : card.hasChanges
+                      ? <DiffViewer original={card.originalContent} current={card.content} />
+                      : card.content}
+              </div>
+
+              {state.settings.cardDisplayMode !== 'single' && card.hasChanges && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '8px',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #dee2e6',
+                  borderRadius: '4px',
+                  borderLeft: '4px solid #6c757d',
+                }}>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#6c757d',
+                    fontWeight: 'bold',
+                    marginBottom: '4px',
+                  }}>
+                    📝 初期内容:
+                  </div>
+                  <div
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: '1.4',
+                      fontFamily: state.settings.fontFamily,
+                      fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
+                      color: '#6c757d',
+                      wordWrap: 'break-word',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {state.settings.renderMode === 'markdown' ? (
+                      <div dangerouslySetInnerHTML={{ __html: renderMarkdown(card.originalContent) }} />
+                    ) : (
+                      <DiffViewer
+                        original={card.originalContent}
+                        current={card.content}
+                        showAdded={false}
+                        showRemoved={true}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {state.settings.cardDisplayMode !== 'single' && renderAttributeSpecificContent()}
+            </div>
+          )}
+
+          {state.settings.cardDisplayMode !== 'single' && (
+            <div style={{
+              fontSize: '11px',
+              color: '#999',
+              marginTop: '8px',
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                marginBottom: card.statusUpdatedAt ? '4px' : '0',
+              }}>
+                <span>作成: {card.createdAt.toLocaleString()}</span>
+                {card.updatedAt.getTime() !== card.createdAt.getTime() && (
+                  <span style={{ color: '#0066cc', fontWeight: 'bold' }}>
+                    更新: {card.updatedAt.toLocaleString()}
+                  </span>
                 )}
               </div>
+              {card.statusUpdatedAt && (
+                <div style={{
+                  fontSize: '10px',
+                  color: '#28a745',
+                  fontWeight: 'bold',
+                }}>
+                  状態更新: {card.statusUpdatedAt.toLocaleString()}
+                </div>
+              )}
             </div>
           )}
-
-          {state.settings.cardDisplayMode !== 'single' && renderAttributeSpecificContent()}
-        </div>
-      )}
-
-      {state.settings.cardDisplayMode !== 'single' && (
-        <div style={{
-          fontSize: '11px',
-          color: '#999',
-          marginTop: '8px',
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px',
-            marginBottom: card.statusUpdatedAt ? '4px' : '0',
-          }}>
-            <span>作成: {card.createdAt.toLocaleString()}</span>
-            {card.updatedAt.getTime() !== card.createdAt.getTime() && (
-              <span style={{ color: '#0066cc', fontWeight: 'bold' }}>
-                更新: {card.updatedAt.toLocaleString()}
-              </span>
-            )}
-          </div>
-          {card.statusUpdatedAt && (
-            <div style={{
-              fontSize: '10px',
-              color: '#28a745',
-              fontWeight: 'bold',
-            }}>
-              状態更新: {card.statusUpdatedAt.toLocaleString()}
-            </div>
-          )}
-        </div>
+        </>
       )}
     </div>
   );
