@@ -19,6 +19,7 @@ interface AppState {
   settings: {
     fontFamily: string;
     fontSize: number;
+    renderMode: 'text' | 'markdown';
   };
   history: {
     undoCount: number;
@@ -75,6 +76,7 @@ const initialState: AppState = {
   settings: {
     fontFamily: 'system-ui, -apple-system, sans-serif',
     fontSize: 12,
+    renderMode: 'text',
   },
   history: {
     undoCount: 0,
