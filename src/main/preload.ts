@@ -6,6 +6,7 @@ export interface ElectronAPI {
   onFileSelected: (callback: (filePath: string) => void) => void;
   saveJson: (jsonContent: string, suggestedName: string) => Promise<string | null>;
   openJsonDialog: () => Promise<string | null>;
+  overwriteJson: (jsonContent: string, filePath: string) => Promise<string | null>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -16,6 +17,7 @@ const electronAPI: ElectronAPI = {
   },
   saveJson: (jsonContent: string, suggestedName: string) => ipcRenderer.invoke('save-json', jsonContent, suggestedName),
   openJsonDialog: () => ipcRenderer.invoke('open-json-dialog'),
+  overwriteJson: (jsonContent: string, filePath: string) => ipcRenderer.invoke('overwrite-json', jsonContent, filePath),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
