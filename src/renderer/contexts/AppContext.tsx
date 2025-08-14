@@ -15,6 +15,10 @@ interface AppState {
     searchText?: string;
   };
   logs: LogEntry[];
+  settings: {
+    fontFamily: string;
+    fontSize: number;
+  };
 }
 
 type AppAction =
@@ -26,7 +30,8 @@ type AppAction =
   | { type: 'SET_FILTER'; payload: Partial<AppState['filter']> }
   | { type: 'UPDATE_CARD'; payload: Card }
   | { type: 'ADD_LOG'; payload: LogEntry }
-  | { type: 'CLEAR_LOGS' };
+  | { type: 'CLEAR_LOGS' }
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> };
 
 interface AppContextType {
   state: AppState;
@@ -40,6 +45,7 @@ interface AppContextType {
     clearFilter: () => void;
     addLog: (level: LogLevel, message: string, details?: string) => void;
     clearLogs: () => void;
+    updateSettings: (settings: Partial<AppState['settings']>) => void;
   };
 }
 
@@ -53,6 +59,10 @@ const initialState: AppState = {
   currentFile: null,
   filter: {},
   logs: [],
+  settings: {
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    fontSize: 14,
+  },
 };
 
 function appReducer(state: AppState, action: AppAction): AppState {
@@ -83,6 +93,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'CLEAR_LOGS':
       return { ...state, logs: [] };
+    case 'UPDATE_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.payload } };
     default:
       return state;
   }
@@ -211,6 +223,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'CLEAR_LOGS' });
   }, []);
 
+  const updateSettings = useCallback((settings: Partial<AppState['settings']>) => {
+    dispatch({ type: 'UPDATE_SETTINGS', payload: settings });
+    
+    // 設定変更をログに記録
+    const settingsDescriptions = [];
+    if (settings.fontFamily) {
+      settingsDescriptions.push(`フォント: ${settings.fontFamily}`);
+    }
+    if (settings.fontSize) {
+      settingsDescriptions.push(`フォントサイズ: ${settings.fontSize}px`);
+    }
+    
+    if (settingsDescriptions.length > 0) {
+      addLog(LogLevel.INFO, `設定を更新: ${settingsDescriptions.join(', ')}`);
+    }
+  }, [addLog]);
+
   const loadJsonFile = useCallback(async (filePath: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
@@ -248,10 +277,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // CardManagerにデータを設定
       cardManager.clear();
       data.cards.forEach(cardData => {
-        const newCard = cardManager.createCard(cardData.content, cardData.position);
-        if (cardData.status !== 'unprocessed') {
-          cardManager.updateCard(newCard.id, { status: cardData.status });
-        }
+        cardManager.createCardFromData({
+          id: cardData.id,
+          content: cardData.content,
+          position: cardData.position,
+          status: cardData.status,
+          createdAt: cardData.createdAt,
+          updatedAt: cardData.updatedAt,
+          originalContent: cardData.originalContent,
+          hasChanges: cardData.hasChanges,
+          statusUpdatedAt: cardData.statusUpdatedAt,
+        });
       });
 
       // カードリストを手動で更新
@@ -305,6 +341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clearFilter,
       addLog,
       clearLogs,
+      updateSettings,
     },
   };
 

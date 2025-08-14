@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardStatus } from '@/models';
+import { useApp } from '../contexts/AppContext';
 
 interface CardItemProps {
   card: Card;
@@ -21,6 +22,7 @@ const STATUS_LABELS = {
 };
 
 export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps) {
+  const { state } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(card.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -87,11 +89,30 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
         marginBottom: '8px',
       }}>
         <div style={{
-          fontSize: '12px',
-          color: '#666',
-          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
         }}>
-          #{card.position + 1}
+          <div style={{
+            fontSize: '12px',
+            color: '#666',
+            fontWeight: 'bold',
+          }}>
+            #{card.position + 1}
+          </div>
+          {card.hasChanges && (
+            <span style={{
+              fontSize: '10px',
+              color: '#0066cc',
+              fontWeight: 'bold',
+              backgroundColor: '#e3f2fd',
+              padding: '2px 6px',
+              borderRadius: '10px',
+              border: '1px solid #0066cc',
+            }}>
+              変更済み
+            </span>
+          )}
         </div>
         
         <select
@@ -127,8 +148,8 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
               border: '1px solid #ccc',
               borderRadius: '4px',
               resize: 'vertical',
-              fontFamily: 'inherit',
-              fontSize: '14px',
+              fontFamily: state.settings.fontFamily,
+              fontSize: `${state.settings.fontSize}px`,
             }}
           />
           <div style={{
@@ -178,12 +199,44 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
           </div>
         </div>
       ) : (
-        <div style={{
-          whiteSpace: 'pre-wrap',
-          lineHeight: '1.5',
-          fontSize: '14px',
-        }}>
-          {card.content}
+        <div>
+          <div style={{
+            whiteSpace: 'pre-wrap',
+            lineHeight: '1.5',
+            fontFamily: state.settings.fontFamily,
+            fontSize: `${state.settings.fontSize}px`,
+          }}>
+            {card.content}
+          </div>
+          
+          {card.hasChanges && (
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              border: '1px solid #dee2e6',
+              borderRadius: '4px',
+              borderLeft: '4px solid #6c757d',
+            }}>
+              <div style={{
+                fontSize: '12px',
+                color: '#6c757d',
+                fontWeight: 'bold',
+                marginBottom: '4px',
+              }}>
+                📝 初期内容:
+              </div>
+              <div style={{
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.4',
+                fontFamily: state.settings.fontFamily,
+                fontSize: `${Math.max(state.settings.fontSize - 1, 11)}px`,
+                color: '#6c757d',
+              }}>
+                {card.originalContent}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -191,12 +244,29 @@ export function CardItem({ card, isSelected, onSelect, onUpdate }: CardItemProps
         fontSize: '11px',
         color: '#999',
         marginTop: '8px',
-        display: 'flex',
-        justifyContent: 'space-between',
       }}>
-        <span>作成: {card.createdAt.toLocaleString()}</span>
-        {card.updatedAt.getTime() !== card.createdAt.getTime() && (
-          <span>更新: {card.updatedAt.toLocaleString()}</span>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '8px',
+          marginBottom: card.statusUpdatedAt ? '4px' : '0',
+        }}>
+          <span>作成: {card.createdAt.toLocaleString()}</span>
+          {card.updatedAt.getTime() !== card.createdAt.getTime() && (
+            <span style={{ color: '#0066cc', fontWeight: 'bold' }}>
+              更新: {card.updatedAt.toLocaleString()}
+            </span>
+          )}
+        </div>
+        {card.statusUpdatedAt && (
+          <div style={{
+            fontSize: '10px',
+            color: '#28a745',
+            fontWeight: 'bold',
+          }}>
+            状態更新: {card.statusUpdatedAt.toLocaleString()}
+          </div>
         )}
       </div>
     </div>

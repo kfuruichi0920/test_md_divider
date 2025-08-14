@@ -62,6 +62,27 @@ export class SaveDataManager {
         if (!card.createdAt || !card.updatedAt) {
           errors.push(`カード${index + 1}: createdAt/updatedAtフィールドが必要です`);
         }
+        
+        // 新しいフィールドのバリデーション（バージョン1.1.0以降の場合）
+        if (data.version === '1.1.0' || (data.version && data.version > '1.0.0')) {
+          if (card.originalContent === undefined) {
+            warnings.push(`カード${index + 1}: originalContentフィールドがありません（後方互換性のため警告のみ）`);
+          }
+          if (card.hasChanges === undefined) {
+            warnings.push(`カード${index + 1}: hasChangesフィールドがありません（後方互換性のため警告のみ）`);
+          }
+        }
+        
+        // バージョン1.2.0以降の場合のstatusUpdatedAtチェック
+        if (data.version === '1.2.0' || (data.version && data.version > '1.1.0')) {
+          // statusUpdatedAtは任意フィールドなので警告のみ
+          if (card.statusUpdatedAt !== undefined && card.statusUpdatedAt !== null) {
+            const statusDate = new Date(card.statusUpdatedAt);
+            if (isNaN(statusDate.getTime())) {
+              warnings.push(`カード${index + 1}: statusUpdatedAtの日付形式が無効です`);
+            }
+          }
+        }
       });
     }
 
@@ -90,6 +111,10 @@ export class SaveDataManager {
             ...card,
             createdAt: new Date(card.createdAt),
             updatedAt: new Date(card.updatedAt),
+            // 後方互換性のため、古いデータに新しいフィールドがない場合はデフォルト値を設定
+            originalContent: card.originalContent !== undefined ? card.originalContent : card.content,
+            hasChanges: card.hasChanges !== undefined ? card.hasChanges : false,
+            statusUpdatedAt: card.statusUpdatedAt ? new Date(card.statusUpdatedAt) : undefined,
           })),
         };
         return { data: saveData, validation };

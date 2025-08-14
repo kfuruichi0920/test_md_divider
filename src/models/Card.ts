@@ -11,6 +11,9 @@ export interface Card {
   status: CardStatus;
   createdAt: Date;
   updatedAt: Date;
+  originalContent: string;
+  hasChanges: boolean;
+  statusUpdatedAt?: Date;
 }
 
 export interface CardUpdatePayload {

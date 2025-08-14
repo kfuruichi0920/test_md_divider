@@ -24,27 +24,45 @@ export function FileDropZone({ children }: FileDropZoneProps) {
     setIsDragOver(false);
 
     const files = Array.from(e.dataTransfer.files);
+    
+    // JSONファイルをチェック
+    const jsonFile = files.find(file => 
+      file.type === 'application/json' || 
+      file.name.endsWith('.json')
+    );
+    
+    // テキストファイルをチェック
     const textFile = files.find(file => 
       file.type === 'text/plain' || 
       file.name.endsWith('.txt') || 
       file.name.endsWith('.md')
     );
 
-    if (!textFile) {
-      alert('テキストファイル（.txt, .md）を選択してください');
+    if (jsonFile) {
+      // JSONファイルの場合
+      try {
+        // ファイルパスの代わりにファイル名を使用（Electronのセキュリティ制限のため）
+        // 実際の実装では、Electronのメインプロセス経由でファイルパスを取得する必要があります
+        await actions.loadJsonFile(jsonFile.name);
+      } catch (error) {
+        console.error('JSONファイル読み込みエラー:', error);
+      }
+    } else if (textFile) {
+      // テキストファイルの場合
+      try {
+        const content = await textFile.text();
+        
+        // ファイルパスの代わりにファイル名を使用（Electronのセキュリティ制限のため）
+        await actions.loadFile(textFile.name);
+        
+        // 実際のコンテンツを直接処理
+        // この部分は実際の実装では、ファイルパスではなくコンテンツを直接扱う必要があります
+      } catch (error) {
+        console.error('ファイル読み込みエラー:', error);
+      }
+    } else {
+      alert('テキストファイル（.txt, .md）またはJSONファイル（.json）を選択してください');
       return;
-    }
-
-    try {
-      const content = await textFile.text();
-      
-      // ファイルパスの代わりにファイル名を使用（Electronのセキュリティ制限のため）
-      await actions.loadFile(textFile.name);
-      
-      // 実際のコンテンツを直接処理
-      // この部分は実際の実装では、ファイルパスではなくコンテンツを直接扱う必要があります
-    } catch (error) {
-      console.error('ファイル読み込みエラー:', error);
     }
   }, [actions]);
 
@@ -97,7 +115,8 @@ export function FileDropZone({ children }: FileDropZoneProps) {
           }}>
             <div style={{ fontSize: '24px', marginBottom: '8px' }}>📄</div>
             <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
-              ファイルをドロップしてください
+              テキストファイル (.txt, .md) または<br />
+              JSONファイル (.json) をドロップしてください
             </div>
           </div>
         </div>

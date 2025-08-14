@@ -18,13 +18,36 @@ export class CardManager {
 
   createCard(content: string, position: number): Card {
     const now = new Date();
+    const trimmedContent = content.trim();
     const card: Card = {
       id: this.generateId(),
       position,
-      content: content.trim(),
+      content: trimmedContent,
       status: CardStatus.UNPROCESSED,
       createdAt: now,
       updatedAt: now,
+      originalContent: trimmedContent,
+      hasChanges: false,
+      statusUpdatedAt: undefined,
+    };
+
+    this.cards.set(card.id, card);
+    this.notifyListeners();
+    return card;
+  }
+
+  createCardFromData(cardData: Partial<Card> & { content: string; position: number; originalContent: string }): Card {
+    const now = new Date();
+    const card: Card = {
+      id: cardData.id || this.generateId(),
+      position: cardData.position,
+      content: cardData.content.trim(),
+      status: cardData.status || CardStatus.UNPROCESSED,
+      createdAt: cardData.createdAt || now,
+      updatedAt: cardData.updatedAt || now,
+      originalContent: cardData.originalContent.trim(),
+      hasChanges: cardData.content.trim() !== cardData.originalContent.trim(),
+      statusUpdatedAt: cardData.statusUpdatedAt,
     };
 
     this.cards.set(card.id, card);
@@ -56,11 +79,22 @@ export class CardManager {
       return null;
     }
 
+    const now = new Date();
     const updatedCard: Card = {
       ...card,
       ...updates,
-      updatedAt: new Date(),
+      updatedAt: now,
     };
+
+    // コンテンツが変更された場合、hasChangesフラグを更新
+    if (updates.content !== undefined) {
+      updatedCard.hasChanges = updates.content !== card.originalContent;
+    }
+
+    // 状態が変更された場合、statusUpdatedAtを設定
+    if (updates.status !== undefined && updates.status !== card.status) {
+      updatedCard.statusUpdatedAt = now;
+    }
 
     this.cards.set(id, updatedCard);
     this.notifyListeners();

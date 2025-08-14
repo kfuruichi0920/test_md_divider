@@ -47,6 +47,14 @@ export function Toolbar() {
     await actions.saveJson();
   }, [actions]);
 
+  const handleFontFamilyChange = useCallback((fontFamily: string) => {
+    actions.updateSettings({ fontFamily });
+  }, [actions]);
+
+  const handleFontSizeChange = useCallback((fontSize: number) => {
+    actions.updateSettings({ fontSize });
+  }, [actions]);
+
   const cardCounts = {
     total: state.cards.length,
     unprocessed: state.cards.filter(c => c.status === CardStatus.UNPROCESSED).length,
@@ -65,7 +73,7 @@ export function Toolbar() {
         alignItems: 'center',
         gap: '12px',
         padding: '8px 12px',
-        borderBottom: state.currentFile ? '1px solid #e9ecef' : 'none',
+        borderBottom: '1px solid #e9ecef',
       }}>
         <button
           onClick={handleFileOpen}
@@ -116,38 +124,46 @@ export function Toolbar() {
             💾 JSONファイルを保存
           </button>
         )}
-
-        {state.currentFile && (
-          <>
-            <div style={{ height: '20px', width: '1px', backgroundColor: '#ddd' }} />
-            <div style={{
-              fontSize: '14px',
-              color: '#666',
-              maxWidth: '300px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              📁 {state.currentFile}
-            </div>
-
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', fontSize: '13px' }}>
-              <span>総数: <strong>{cardCounts.total}</strong></span>
-              <span style={{ color: '#dc3545' }}>未処理: <strong>{cardCounts.unprocessed}</strong></span>
-              <span style={{ color: '#ffc107' }}>処理中: <strong>{cardCounts.processing}</strong></span>
-              <span style={{ color: '#28a745' }}>処理済み: <strong>{cardCounts.processed}</strong></span>
-            </div>
-          </>
-        )}
       </div>
 
-      {/* 2段目: フィルター操作 */}
+      {/* 2段目: ファイルパス情報 */}
       {state.currentFile && (
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           padding: '8px 12px',
+          borderBottom: '1px solid #e9ecef',
+          backgroundColor: '#f8f9fa',
+        }}>
+          <div style={{
+            fontSize: '14px',
+            color: '#666',
+            maxWidth: '400px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            📁 {state.currentFile}
+          </div>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', fontSize: '13px' }}>
+            <span>総数: <strong>{cardCounts.total}</strong></span>
+            <span style={{ color: '#dc3545' }}>未処理: <strong>{cardCounts.unprocessed}</strong></span>
+            <span style={{ color: '#ffc107' }}>処理中: <strong>{cardCounts.processing}</strong></span>
+            <span style={{ color: '#28a745' }}>処理済み: <strong>{cardCounts.processed}</strong></span>
+          </div>
+        </div>
+      )}
+
+      {/* 3段目: フィルター操作 */}
+      {state.currentFile && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '8px 12px',
+          backgroundColor: '#ffffff',
         }}>
           <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
             🔍 フィルター:
@@ -199,6 +215,58 @@ export function Toolbar() {
               ✕ クリア
             </button>
           )}
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#495057' }}>
+              ⚙️ 設定:
+            </span>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+              フォント:
+              <select
+                value={state.settings.fontFamily}
+                onChange={(e) => handleFontFamilyChange(e.target.value)}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              >
+                <option value="system-ui, -apple-system, sans-serif">システム</option>
+                <option value="'Helvetica Neue', Arial, sans-serif">Arial</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="'Hiragino Sans', 'Noto Sans JP', sans-serif">ヒラギノ角ゴ</option>
+                <option value="'Yu Gothic', 'YuGothic', sans-serif">游ゴシック</option>
+                <option value="'Meiryo', sans-serif">メイリオ</option>
+              </select>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+              サイズ:
+              <select
+                value={state.settings.fontSize}
+                onChange={(e) => handleFontSizeChange(Number(e.target.value))}
+                style={{
+                  padding: '4px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                }}
+              >
+                <option value="12">12px</option>
+                <option value="13">13px</option>
+                <option value="14">14px</option>
+                <option value="15">15px</option>
+                <option value="16">16px</option>
+                <option value="18">18px</option>
+                <option value="20">20px</option>
+                <option value="22">22px</option>
+                <option value="24">24px</option>
+              </select>
+            </label>
+          </div>
         </div>
       )}
     </div>
