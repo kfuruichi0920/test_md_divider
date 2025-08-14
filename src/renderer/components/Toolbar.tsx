@@ -146,6 +146,42 @@ export function Toolbar() {
             </button>
           </>
         )}
+
+        <button
+          onClick={actions.undo}
+          disabled={state.history.undoCount === 0}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: state.history.undoCount === 0 ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            opacity: state.history.undoCount === 0 ? 0.5 : 1,
+          }}
+        >
+          ↶ 戻る
+        </button>
+
+        <button
+          onClick={actions.redo}
+          disabled={state.history.redoCount === 0}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: state.history.redoCount === 0 ? 'not-allowed' : 'pointer',
+            fontWeight: 'bold',
+            fontSize: '14px',
+            opacity: state.history.redoCount === 0 ? 0.5 : 1,
+          }}
+        >
+          ↷ 進む
+        </button>
       </div>
 
       {/* 2段目: ファイルパス情報 */}

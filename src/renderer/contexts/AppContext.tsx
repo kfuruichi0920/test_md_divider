@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
-import { Card, CardStatus, CardUpdatePayload, SaveData } from '@/models';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import { Card, CardStatus, CardUpdatePayload } from '@/models';
 import { CardManager, SaveDataManager } from '@/services';
 import { TextProcessor } from '@/utils';
 import { LogEntry, LogLevel } from '../components/StatusLog';
@@ -20,6 +20,10 @@ interface AppState {
     fontFamily: string;
     fontSize: number;
   };
+  history: {
+    undoCount: number;
+    redoCount: number;
+  };
 }
 
 type AppAction =
@@ -33,7 +37,8 @@ type AppAction =
   | { type: 'UPDATE_CARD'; payload: Card }
   | { type: 'ADD_LOG'; payload: LogEntry }
   | { type: 'CLEAR_LOGS' }
-  | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> };
+  | { type: 'UPDATE_SETTINGS'; payload: Partial<AppState['settings']> }
+  | { type: 'SET_HISTORY'; payload: { undoCount: number; redoCount: number } };
 
 interface AppContextType {
   state: AppState & { cardManager: CardManager };
@@ -51,6 +56,8 @@ interface AppContextType {
     updateSettings: (settings: Partial<AppState['settings']>) => void;
     moveCard: (cardId: string, direction: 'up' | 'down') => void;
     moveCardToPosition: (cardId: string, targetIndex: number) => void;
+    undo: () => void;
+    redo: () => void;
   };
 }
 
@@ -68,6 +75,10 @@ const initialState: AppState = {
   settings: {
     fontFamily: 'system-ui, -apple-system, sans-serif',
     fontSize: 12,
+  },
+  history: {
+    undoCount: 0,
+    redoCount: 0,
   },
 };
 
@@ -103,6 +114,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, logs: [] };
     case 'UPDATE_SETTINGS':
       return { ...state, settings: { ...state.settings, ...action.payload } };
+    case 'SET_HISTORY':
+      return { ...state, history: action.payload };
     default:
       return state;
   }
@@ -112,6 +125,58 @@ const cardManager = new CardManager();
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  const undoStack = useRef<Card[][]>([]);
+  const redoStack = useRef<Card[][]>([]);
+
+  const cloneCards = useCallback((cards: Card[]): Card[] =>
+    cards.map(card => ({
+      ...card,
+      createdAt: new Date(card.createdAt),
+      updatedAt: new Date(card.updatedAt),
+      statusUpdatedAt: card.statusUpdatedAt ? new Date(card.statusUpdatedAt) : undefined,
+    })), []);
+
+  const updateHistoryState = useCallback(() => {
+    dispatch({
+      type: 'SET_HISTORY',
+      payload: { undoCount: undoStack.current.length, redoCount: redoStack.current.length },
+    });
+  }, []);
+
+  const restoreCards = useCallback((cards: Card[]) => {
+    cardManager.clear();
+    cards.forEach(card => {
+      cardManager.createCardFromData(card);
+    });
+    const updated = cardManager.getAllCards({
+      filter: state.filter,
+      sortOrder: 'displayOrder',
+      sortDirection: 'asc',
+    });
+    dispatch({ type: 'SET_CARDS', payload: updated });
+  }, [state.filter]);
+
+  const undo = useCallback(() => {
+    if (undoStack.current.length === 0) return;
+    const current = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const snapshot = undoStack.current.pop()!;
+    redoStack.current.push(current);
+    restoreCards(snapshot);
+    updateHistoryState();
+  }, [cloneCards, restoreCards, updateHistoryState]);
+
+  const redo = useCallback(() => {
+    if (redoStack.current.length === 0) return;
+    const current = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
+    const snapshot = redoStack.current.pop()!;
+    undoStack.current.push(current);
+    if (undoStack.current.length > 10) {
+      undoStack.current.shift();
+    }
+    restoreCards(snapshot);
+    updateHistoryState();
+  }, [cloneCards, restoreCards, updateHistoryState]);
 
   // 初期化時にログ追加
   useEffect(() => {
@@ -154,6 +219,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadFile = useCallback(async (filePath: string) => {
+    undoStack.current = [];
+    redoStack.current = [];
+    dispatch({ type: 'SET_HISTORY', payload: { undoCount: 0, redoCount: 0 } });
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
     addLog(LogLevel.INFO, `テキストファイルの読み込みを開始: ${filePath}`);
@@ -191,15 +259,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [addLog]);
 
   const updateCard = useCallback((id: string, updates: CardUpdatePayload) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
     const updatedCard = cardManager.updateCard(id, updates);
     if (updatedCard) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
       dispatch({ type: 'UPDATE_CARD', payload: updatedCard });
-      
+
       // 更新内容をログに記録
       const changes = Object.keys(updates).join(', ');
       addLog(LogLevel.INFO, `カード #${updatedCard.position + 1} を更新: ${changes}`);
     }
-  }, [addLog]);
+  }, [addLog, cloneCards, updateHistoryState]);
 
   const selectCard = useCallback((id: string | null) => {
     dispatch({ type: 'SET_SELECTED_CARD', payload: id });
@@ -250,27 +325,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [addLog]);
 
   const moveCard = useCallback((cardId: string, direction: 'up' | 'down') => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
     const success = cardManager.moveCard(cardId, direction);
     if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
       const card = cardManager.getCard(cardId);
       if (card) {
         const directionText = direction === 'up' ? '上' : '下';
         addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を${directionText}に移動しました`);
       }
     }
-  }, [addLog]);
+  }, [addLog, cloneCards, updateHistoryState]);
 
   const moveCardToPosition = useCallback((cardId: string, targetIndex: number) => {
+    const snapshot = cloneCards(cardManager.getAllCards({ sortOrder: 'displayOrder', sortDirection: 'asc' }));
     const success = cardManager.moveCardToPosition(cardId, targetIndex);
     if (success) {
+      undoStack.current.push(snapshot);
+      if (undoStack.current.length > 10) {
+        undoStack.current.shift();
+      }
+      redoStack.current = [];
+      updateHistoryState();
       const card = cardManager.getCard(cardId);
       if (card) {
         addLog(LogLevel.INFO, `カード #${cardManager.getDisplayOrderNumber(card)} を位置 ${targetIndex + 1} に移動しました`);
       }
     }
-  }, [addLog]);
+  }, [addLog, cloneCards, updateHistoryState]);
 
   const loadJsonFile = useCallback(async (filePath: string) => {
+    undoStack.current = [];
+    redoStack.current = [];
+    dispatch({ type: 'SET_HISTORY', payload: { undoCount: 0, redoCount: 0 } });
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
     addLog(LogLevel.INFO, `JSONファイルの読み込みを開始: ${filePath}`);
@@ -402,6 +494,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       moveCard,
       moveCardToPosition,
+      undo,
+      redo,
     },
   };
 
